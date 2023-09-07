@@ -1,4 +1,4 @@
-import { createJobRouter } from "./JobRouter";
+import { JobRouterArgs, createJobRouter } from "./JobRouter";
 import { __do_not_use_createJobRouterMock } from "./tests/_do_not_use_hardcoded_mock";
 import { MockJobRouterConfig, createMockJobRouter } from "./tests/JobMocker";
 import { createJobSender } from "./JobSender";
@@ -343,6 +343,79 @@ test('should not retry when "maxRetries" is set to 0', async () => {
 }
 `);
 });
+
+test('hooks should work', async () => {
+  const config = {
+    "user.created": {
+      "function 1": {
+        "step 1": "step",
+        "step 2": "step",
+        "step 3": "step",
+      },
+      "function 2": {
+        "step 1": "step",
+        "step 2": ["sleep", 1, "days"],
+        "step 3": "step",
+      }
+    },
+  } satisfies MockJobRouterConfig<Jobs>;
+
+  type Hooks = Required<Required<JobRouterArgs<any>>['hooks']>;
+  const hooks = {
+    beforeExecuteFunction: jest.fn<Hooks['beforeExecuteFunction']>(),
+    afterExecuteFunction: jest.fn<Hooks['afterExecuteFunction']>(),
+    beforeExecuteStep: jest.fn<Hooks['beforeExecuteStep']>(),
+    afterExecuteStep: jest.fn<Hooks['afterExecuteStep']>(),
+  }
+  const { mocks, run } = createMockJobRouter(config, {
+    maxRetries: 1,
+    hooks
+  });
+
+  await run("user.created", { 
+    userId: 'abc'
+  });
+
+  expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(3);
+  expect(hooks.beforeExecuteFunction.mock.calls.map((call) => call[1])).toMatchInlineSnapshot(`
+[
+  "function 1",
+  "function 2",
+  "function 2",
+]
+`);
+  expect(hooks.afterExecuteFunction).toHaveBeenCalledTimes(3);
+  expect(hooks.afterExecuteFunction.mock.calls.map((call) => call[1])).toMatchInlineSnapshot(`
+[
+  "function 2",
+  "function 1",
+  "function 2",
+]
+`);
+
+expect(hooks.beforeExecuteStep.mock.calls.map((call) => [call[1], call[2], call[3]?.status].join(' -- '))).toMatchInlineSnapshot(`
+[
+  "function 1 -- step 1 -- pending",
+  "function 2 -- step 1 -- pending",
+  "function 1 -- step 2 -- pending",
+  "function 2 -- step 2 -- ",
+  "function 1 -- step 3 -- pending",
+  "function 2 -- step 2 -- sleeping",
+  "function 2 -- step 3 -- pending",
+]
+`);
+expect(hooks.afterExecuteStep.mock.calls.map((call) => [call[1], call[2], call[3]?.status].join(' -- '))).toMatchInlineSnapshot(`
+[
+  "function 1 -- step 1 -- success",
+  "function 2 -- step 1 -- success",
+  "function 2 -- step 2 -- sleeping",
+  "function 1 -- step 2 -- success",
+  "function 1 -- step 3 -- success",
+  "function 2 -- step 2 -- success",
+  "function 2 -- step 3 -- success",
+]
+`);
+})
 
 test("should retry once when max retries is set to 1", async () => {
   const config = {

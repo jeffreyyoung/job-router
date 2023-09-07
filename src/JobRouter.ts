@@ -196,6 +196,12 @@ export type JobRouterArgs<Ctx> = {
    * @default 3
    */
   maxRetries?: number;
+  hooks?: {
+    beforeExecuteFunction?: (ctx: Ctx, functionName: string, functionState?: IFunctionExecutionState) => void;
+    afterExecuteFunction?: (ctx: Ctx, functionName: string, functionState: IFunctionExecutionState) => void;
+    beforeExecuteStep?: (ctx: Ctx, functionName: string, stepName: string, stepState?: StepState) => void;
+    afterExecuteStep?: (ctx: Ctx, functionName: string, stepName: string, stepState: StepState) => void;
+  }
 };
 
 const SleepSymbol = Symbol("sleep");
@@ -370,6 +376,7 @@ export function createJobRouter<
                   sleep: async (uniqueStepName, [amount, unit]) => {
                     let stepState = fnState.stepStates[uniqueStepName];
                     if (!stepState) {
+                      args.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, undefined);
                       let untilISO =
                         unit === "days"
                           ? addDays(new Date(), amount).toISOString()
@@ -383,11 +390,15 @@ export function createJobRouter<
                         numberOfPreviousAttempts: 1,
                         executionId,
                       };
+
+                      args.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]!);
+                      
                       throw createSleepMessage({
                         type: SleepSymbol,
                         untilISO,
                       });
                     } else if (stepState.status === "sleeping") {
+                      args.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]);
                       fnState.stepStates[uniqueStepName] = {
                         status: "success",
                         result: true,
@@ -397,6 +408,7 @@ export function createJobRouter<
                         numberOfFailedPreviousAttempts:
                           stepState.numberOfFailedPreviousAttempts,
                       };
+                      args.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]!);
                     }
                     return true;
                   },
@@ -416,7 +428,10 @@ export function createJobRouter<
                       return stepState.result;
                     }
 
+
+
                     try {
+                      args?.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, stepState);
                       let result = await cb();
                       fnState.stepStates[uniqueStepName] = {
                         status: "success",
@@ -427,6 +442,7 @@ export function createJobRouter<
                         numberOfPreviousAttempts:
                           stepState.numberOfPreviousAttempts + 1,
                       };
+                      args?.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]!);
                       return result;
                     } catch (err) {
                       fnState.stepStates[uniqueStepName] = {
@@ -438,6 +454,7 @@ export function createJobRouter<
                         numberOfPreviousAttempts:
                           stepState.numberOfPreviousAttempts + 1,
                       };
+                      args?.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, stepState);
                       throw err;
                     }
                   },
@@ -445,60 +462,67 @@ export function createJobRouter<
               };
 
             try {
+              args.hooks?.beforeExecuteFunction?.(handlerArg.ctx, fn.functionName, fnState);
               // @ts-ignore
               let result = await fn.handler(handlerArg);
+              const successState: IFunctionExecutionState = {
+                ...fnState,
+                state: {
+                  status: "success",
+                  result,
+                  executionId,
+                  numberOfPreviousAttempts:
+                    fnState.state.numberOfPreviousAttempts + 1,
 
+                  numberOfFailedPreviousAttempts:
+                    fnState.state.numberOfFailedPreviousAttempts,
+                },
+              };
+              args.hooks?.afterExecuteFunction?.(handlerArg.ctx, fn.functionName, successState);
               return [
                 fn.functionName,
-                {
-                  ...fnState,
-                  state: {
-                    status: "success",
-                    result,
-                    executionId,
-                    numberOfPreviousAttempts:
-                      fnState.state.numberOfPreviousAttempts + 1,
-
-                    numberOfFailedPreviousAttempts:
-                      fnState.state.numberOfFailedPreviousAttempts,
-                  },
-                },
+                successState,
               ];
             } catch (err) {
               if (isThrownSleep(err)) {
                 // is sleeping
-                return [
-                  fn.functionName,
-                  {
-                    ...fnState,
-                    state: {
-                      executionId,
-                      status: "sleeping",
-                      untilISO: err.untilISO,
-                      numberOfFailedPreviousAttempts:
-                        fnState.state.numberOfFailedPreviousAttempts,
-                      numberOfPreviousAttempts:
-                        fnState.state.numberOfPreviousAttempts + 1,
-                    },
-                  },
-                ];
-              }
-              someFunctionDidFail = true;
-              // actual error happened
-              return [
-                fn.functionName,
-                {
+                const sleepState: IFunctionExecutionState = {
                   ...fnState,
                   state: {
                     executionId,
-                    status: "error",
-                    err,
+                    status: "sleeping",
+                    untilISO: err.untilISO,
                     numberOfFailedPreviousAttempts:
-                      fnState.state.numberOfFailedPreviousAttempts + 1,
+                      fnState.state.numberOfFailedPreviousAttempts,
                     numberOfPreviousAttempts:
                       fnState.state.numberOfPreviousAttempts + 1,
                   },
+                };
+                args.hooks?.afterExecuteFunction?.(handlerArg.ctx, fn.functionName, sleepState);
+                return [
+                  fn.functionName,
+                  sleepState,
+                ];
+              }
+              someFunctionDidFail = true;
+
+              const errorState: IFunctionExecutionState = {
+                ...fnState,
+                state: {
+                  executionId,
+                  status: "error",
+                  err,
+                  numberOfFailedPreviousAttempts:
+                    fnState.state.numberOfFailedPreviousAttempts + 1,
+                  numberOfPreviousAttempts:
+                    fnState.state.numberOfPreviousAttempts + 1,
                 },
+              };
+              args.hooks?.afterExecuteFunction?.(handlerArg.ctx, fn.functionName, errorState);
+              // actual error happened
+              return [
+                fn.functionName,
+               errorState
               ];
             }
           })
