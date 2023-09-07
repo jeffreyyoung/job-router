@@ -18,17 +18,17 @@ export type JobSender<Events extends IEventSchemas> = {
  */
 
 export function createJobSender<Events extends IEventSchemas>(
-  send: (state: IEventExecutionState<Events, any>) => Promise<any>
+  send: (state: IEventExecutionState<Events, any>[]) => Promise<any>
 ): JobSender<Events> {
   return {
     send<EventName extends keyof Events>(
       eventName: EventName,
       data: Events[EventName]
     ) {
-      return send(createInitialEventExecutionState({ eventName, data }));
+      return send([createInitialEventExecutionState({ eventName, data })]);
     },
     sendMany(jobs) {
-      return Promise.all(jobs.map((job) => send(job)));
+      return send(jobs);
     },
   };
 }

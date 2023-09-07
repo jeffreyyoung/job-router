@@ -15,8 +15,8 @@ test("job sender should work", () => {
 
   let queue: any[] = [];
 
-  const sender = createJobSender<Events>((state) =>
-    Promise.resolve(queue.push(state))
+  const sender = createJobSender<Events>((jobs) =>
+    Promise.resolve(queue.push(...jobs))
   );
 
   sender.send("user.created", {

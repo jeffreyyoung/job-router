@@ -219,9 +219,9 @@ describe("job worker should work", () => {
   const worker = createJobWorker({
     createCtx: () => ({}),
     router,
-    scheduler: createJobSender(async (state) => {
+    scheduler: createJobSender(async (jobs) => {
       // console.log("processing job", state);
-      await worker.handleIncomingJobs([state]);
+      await worker.handleIncomingJobs(jobs);
     }),
     hooks: {
       afterHandleJob: onProcessedJobMock,

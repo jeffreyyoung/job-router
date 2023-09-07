@@ -80,14 +80,13 @@ export function __do_not_use_createJobRouterMock() {
   const queue: { runAt: Date; job: IEventExecutionState<RouterEvents, any> }[] =
     [];
 
-  const scheduler = createJobSender<RouterEvents>(async (state) => {
-    queue.push({
-      runAt:
-        state.status.type === "readyAt"
-          ? new Date(state.status.readyAtISO)
-          : new Date(),
-      job: state,
-    });
+  const scheduler = createJobSender<RouterEvents>(async (jobs) => {
+    for (const job of jobs) {
+      queue.push({
+        runAt: job.status.type === "readyAt" ? new Date(job.status.readyAtISO) : new Date(),
+        job,
+      })
+    }
 
     queue.sort((a, b) => a.runAt.getTime() - b.runAt.getTime());
   });
