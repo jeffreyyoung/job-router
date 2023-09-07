@@ -190,6 +190,12 @@ export function createInitialEventExecutionState<
   };
 }
 
+type HookArg<Ctx>= {
+  ctx: Ctx,
+  executionState: IEventExecutionState<any, any>,
+  functionName: string,
+}
+
 export type JobRouterArgs<Ctx> = {
   getCtx?: () => Promise<Ctx>;
   /**
@@ -198,10 +204,10 @@ export type JobRouterArgs<Ctx> = {
    */
   maxRetries?: number;
   hooks?: {
-    beforeExecuteFunction?: (ctx: Ctx, functionName: string, functionState?: IFunctionExecutionState) => void;
-    afterExecuteFunction?: (ctx: Ctx, functionName: string, functionState: IFunctionExecutionState) => void;
-    beforeExecuteStep?: (ctx: Ctx, functionName: string, stepName: string, stepState?: StepState) => void;
-    afterExecuteStep?: (ctx: Ctx, functionName: string, stepName: string, stepState: StepState) => void;
+    beforeExecuteFunction?: (args: HookArg<Ctx> & { functionState?: IFunctionExecutionState }) => void;
+    afterExecuteFunction?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState }) => void;
+    beforeExecuteStep?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState, stepName: string, stepState?: StepState }) => void;
+    afterExecuteStep?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState, stepName: string, stepState?: StepState }) => void;
   }
 };
 
@@ -378,7 +384,15 @@ export function createJobRouter<
                   sleep: async (uniqueStepName, [amount, unit]) => {
                     let stepState = fnState.stepStates[uniqueStepName];
                     if (!stepState) {
-                      args.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, undefined);
+                      args.hooks?.beforeExecuteStep?.({
+                        // @ts-expect-error
+                        ctx,
+                        executionState: state,
+                        functionName: fn.functionName,
+                        stepName: uniqueStepName,
+                        functionState: fnState,
+                        stepState: undefined,
+                      });
                       let delaySeconds = 
                         unit === "days" ? amount * 24 * 60 * 60 :
                         unit === "hours" ? amount * 60 * 60 :
@@ -396,7 +410,15 @@ export function createJobRouter<
                         executionId,
                       };
 
-                      args.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]!);
+                      args.hooks?.afterExecuteStep?.({
+                        // @ts-expect-error
+                        ctx,
+                        executionState: state,
+                        functionName: fn.functionName,
+                        stepName: uniqueStepName,
+                        functionState: fnState,
+                        stepState: fnState.stepStates[uniqueStepName],
+                      });
                       
                       throw createSleepMessage({
                         type: SleepSymbol,
@@ -404,7 +426,16 @@ export function createJobRouter<
                         delaySeconds,
                       });
                     } else if (stepState.status === "sleeping") {
-                      args.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]);
+                      args.hooks?.beforeExecuteStep?.({
+                        // @ts-expect-error
+                        ctx,
+                        executionState: state,
+                        functionName: fn.functionName,
+                        stepName: uniqueStepName,
+                        functionState: fnState,
+                        stepState: fnState.stepStates[uniqueStepName],
+                      });
+
                       fnState.stepStates[uniqueStepName] = {
                         status: "success",
                         result: true,
@@ -414,7 +445,15 @@ export function createJobRouter<
                         numberOfFailedPreviousAttempts:
                           stepState.numberOfFailedPreviousAttempts,
                       };
-                      args.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]!);
+                      args.hooks?.afterExecuteStep?.({
+                        // @ts-expect-error
+                        ctx,
+                        executionState: state,
+                        functionName: fn.functionName,
+                        stepName: uniqueStepName,
+                        functionState: fnState,
+                        stepState: fnState.stepStates[uniqueStepName],
+                      });
                     }
                     return true;
                   },
@@ -437,7 +476,15 @@ export function createJobRouter<
 
 
                     try {
-                      args?.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, stepState);
+                      args.hooks?.beforeExecuteStep?.({
+                        // @ts-expect-error
+                        ctx,
+                        executionState: state,
+                        functionName: fn.functionName,
+                        stepName: uniqueStepName,
+                        functionState: fnState,
+                        stepState: fnState.stepStates[uniqueStepName],
+                      });
                       let result = await cb();
                       fnState.stepStates[uniqueStepName] = {
                         status: "success",
@@ -448,7 +495,15 @@ export function createJobRouter<
                         numberOfPreviousAttempts:
                           stepState.numberOfPreviousAttempts + 1,
                       };
-                      args?.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]!);
+                      args.hooks?.afterExecuteStep?.({
+                        // @ts-expect-error
+                        ctx,
+                        executionState: state,
+                        functionName: fn.functionName,
+                        stepName: uniqueStepName,
+                        functionState: fnState,
+                        stepState: fnState.stepStates[uniqueStepName],
+                      });
                       return result;
                     } catch (err) {
                       fnState.stepStates[uniqueStepName] = {
@@ -460,7 +515,16 @@ export function createJobRouter<
                         numberOfPreviousAttempts:
                           stepState.numberOfPreviousAttempts + 1,
                       };
-                      args?.hooks?.afterExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, stepState);
+
+                      args.hooks?.afterExecuteStep?.({
+                        // @ts-expect-error
+                        ctx,
+                        executionState: state,
+                        functionName: fn.functionName,
+                        stepName: uniqueStepName,
+                        functionState: fnState,
+                        stepState: fnState.stepStates[uniqueStepName],
+                      });
                       throw err;
                     }
                   },
@@ -468,7 +532,12 @@ export function createJobRouter<
               };
 
             try {
-              args.hooks?.beforeExecuteFunction?.(handlerArg.ctx, fn.functionName, fnState);
+              args.hooks?.beforeExecuteFunction?.({
+                ctx: handlerArg.ctx,
+                executionState: state,
+                functionName: fn.functionName,
+                functionState: fnState,
+              });
               // @ts-ignore
               let result = await fn.handler(handlerArg);
               const successState: IFunctionExecutionState = {
@@ -484,7 +553,12 @@ export function createJobRouter<
                     fnState.state.numberOfFailedPreviousAttempts,
                 },
               };
-              args.hooks?.afterExecuteFunction?.(handlerArg.ctx, fn.functionName, successState);
+              args.hooks?.afterExecuteFunction?.({
+                ctx: handlerArg.ctx,
+                executionState: state,
+                functionName: fn.functionName,
+                functionState: fnState,
+              });
               return [
                 fn.functionName,
                 successState,
@@ -505,7 +579,12 @@ export function createJobRouter<
                       fnState.state.numberOfPreviousAttempts + 1,
                   },
                 };
-                args.hooks?.afterExecuteFunction?.(handlerArg.ctx, fn.functionName, sleepState);
+                args.hooks?.afterExecuteFunction?.({
+                  ctx: handlerArg.ctx,
+                  executionState: state,
+                  functionName: fn.functionName,
+                  functionState: sleepState
+                });
                 return [
                   fn.functionName,
                   sleepState,
@@ -525,7 +604,12 @@ export function createJobRouter<
                     fnState.state.numberOfPreviousAttempts + 1,
                 },
               };
-              args.hooks?.afterExecuteFunction?.(handlerArg.ctx, fn.functionName, errorState);
+              args.hooks?.afterExecuteFunction?.({
+                ctx: handlerArg.ctx,
+                executionState: state,
+                functionName: fn.functionName,
+                functionState: errorState
+              });
               // actual error happened
               return [
                 fn.functionName,

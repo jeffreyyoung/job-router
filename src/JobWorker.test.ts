@@ -377,7 +377,7 @@ test('hooks should work', async () => {
   });
 
   expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(3);
-  expect(hooks.beforeExecuteFunction.mock.calls.map((call) => call[1])).toMatchInlineSnapshot(`
+  expect(hooks.beforeExecuteFunction.mock.calls.map((call) => call[0].functionName)).toMatchInlineSnapshot(`
 [
   "function 1",
   "function 2",
@@ -385,7 +385,7 @@ test('hooks should work', async () => {
 ]
 `);
   expect(hooks.afterExecuteFunction).toHaveBeenCalledTimes(3);
-  expect(hooks.afterExecuteFunction.mock.calls.map((call) => call[1])).toMatchInlineSnapshot(`
+  expect(hooks.afterExecuteFunction.mock.calls.map((call) => call[0].functionName)).toMatchInlineSnapshot(`
 [
   "function 2",
   "function 1",
@@ -393,7 +393,7 @@ test('hooks should work', async () => {
 ]
 `);
 
-expect(hooks.beforeExecuteStep.mock.calls.map((call) => [call[1], call[2], call[3]?.status].join(' -- '))).toMatchInlineSnapshot(`
+expect(hooks.beforeExecuteStep.mock.calls.map(([arg]) => [arg.functionName,arg.stepName, arg.stepState?.status].join(' -- '))).toMatchInlineSnapshot(`
 [
   "function 1 -- step 1 -- pending",
   "function 2 -- step 1 -- pending",
@@ -404,7 +404,7 @@ expect(hooks.beforeExecuteStep.mock.calls.map((call) => [call[1], call[2], call[
   "function 2 -- step 3 -- pending",
 ]
 `);
-expect(hooks.afterExecuteStep.mock.calls.map((call) => [call[1], call[2], call[3]?.status].join(' -- '))).toMatchInlineSnapshot(`
+expect(hooks.afterExecuteStep.mock.calls.map(([arg]) => [arg.functionName,arg.stepName, arg.stepState?.status].join(' -- '))).toMatchInlineSnapshot(`
 [
   "function 1 -- step 1 -- success",
   "function 2 -- step 1 -- success",
