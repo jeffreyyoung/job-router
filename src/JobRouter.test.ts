@@ -477,6 +477,7 @@ describe("ingester", () => {
     if (status.type !== "readyAt") {
       throw new Error("expected status to be sleeping");
     }
+    expect(status.readyAtDelaySeconds).toBe(86400);
     expect(new Date(status.readyAtISO).getTime()).toBeGreaterThan(
       addHours(new Date(), 23).getTime()
     );

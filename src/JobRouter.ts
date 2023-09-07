@@ -1,4 +1,4 @@
-import { addDays, addHours, addMinutes } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
 import { makeId } from "./utils/makeId";
 
 /**
@@ -31,7 +31,7 @@ type IStep = {
   run<T>(name: string, cb: () => Promise<T>): Promise<T>;
   sleep(
     name: string,
-    time: [number, "minutes" | "hours" | "days"]
+    time: [number, "minutes" | "hours" | "days" | 'seconds']
   ): Promise<true>;
 };
 
@@ -90,7 +90,7 @@ type StepState = (
   | { status: "success"; result: any }
   | { status: "error"; err: any }
   | { status: "pending" }
-  | { status: "sleeping"; untilISO: string }
+  | { status: "sleeping"; untilISO: string, delaySeconds: number }
   | { status: "handledByAnotherExecution" }
 ) & {
   /**
@@ -155,6 +155,7 @@ export type IEventExecutionState<
     | {
         type: "readyAt"; // job is waiting until a certain time to be retried (sleeping)
         readyAtISO: string;
+        readyAtDelaySeconds: number;
       }
     | {
         type: "maxRetriesExceeded";
@@ -209,6 +210,7 @@ const SleepSymbol = Symbol("sleep");
 type SleepMessage = {
   type: typeof SleepSymbol;
   untilISO: string;
+  delaySeconds: number;
 };
 
 function createSleepMessage(err: SleepMessage) {
@@ -377,15 +379,18 @@ export function createJobRouter<
                     let stepState = fnState.stepStates[uniqueStepName];
                     if (!stepState) {
                       args.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, undefined);
-                      let untilISO =
-                        unit === "days"
-                          ? addDays(new Date(), amount).toISOString()
-                          : unit === "hours"
-                          ? addHours(new Date(), amount).toISOString()
-                          : addMinutes(new Date(), amount).toISOString();
+                      let delaySeconds = 
+                        unit === "days" ? amount * 24 * 60 * 60 :
+                        unit === "hours" ? amount * 60 * 60 :
+                        unit === 'minutes' ? amount * 60 :
+                        unit === 'seconds' ? amount : 1;
+
+                      let untilISO = addSeconds(new Date(), delaySeconds).toISOString();
+                      
                       fnState.stepStates[uniqueStepName] = {
                         status: "sleeping",
                         untilISO,
+                        delaySeconds,
                         numberOfFailedPreviousAttempts: 0,
                         numberOfPreviousAttempts: 1,
                         executionId,
@@ -396,6 +401,7 @@ export function createJobRouter<
                       throw createSleepMessage({
                         type: SleepSymbol,
                         untilISO,
+                        delaySeconds,
                       });
                     } else if (stepState.status === "sleeping") {
                       args.hooks?.beforeExecuteStep?.(handlerArg.ctx, fn.functionName, uniqueStepName, fnState.stepStates[uniqueStepName]);
@@ -492,6 +498,7 @@ export function createJobRouter<
                     executionId,
                     status: "sleeping",
                     untilISO: err.untilISO,
+                    delaySeconds: err.delaySeconds,
                     numberOfFailedPreviousAttempts:
                       fnState.state.numberOfFailedPreviousAttempts,
                     numberOfPreviousAttempts:
@@ -548,6 +555,7 @@ export function createJobRouter<
           clone.includeFunctions = [functionName];
           clone.status = {
             type: "readyAt",
+            readyAtDelaySeconds: functionState.state.delaySeconds,
             readyAtISO: sleepingUntil,
           };
           forks.push(clone);
