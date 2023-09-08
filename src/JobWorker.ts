@@ -42,12 +42,14 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
     } | {
       jobs: [IEventExecutionState<any, any>, Ctx][]
     })) {
-      return (...args: InputArgs) => {
+      return async (...args: InputArgs) => {
         const result = handler(...args);
         if ('ctx' in result) {
-          return this.handleMany(result.jobs, result.ctx);
+          await this.handleMany(result.jobs, result.ctx);
+          return true;
         } else {
-          return Promise.all(result.jobs.map(([job, ctx]) => this.handleJob(job, ctx)))
+          await Promise.all(result.jobs.map(([job, ctx]) => this.handleJob(job, ctx)));
+          return true;
         }
       };
     }
