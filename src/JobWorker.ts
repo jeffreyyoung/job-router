@@ -36,18 +36,17 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
     async handleMany(jobs: IEventExecutionState<any, any>[], _ctx?: Ctx) {
       return Promise.all(jobs.map((job) => this.handleJob(job, _ctx)));
     },
-    createHandler<InputArgs extends any[]>(handler: (...args: InputArgs) => ({
+    createHandler<InputArgs extends any[]>(mapInputToJobs: (...args: InputArgs) => ({
       jobs: IEventExecutionState<any, any>[],
       ctx: Ctx
-    } | {
-      jobAndCtx: { job: IEventExecutionState<any, any>, ctx: Ctx }[]
-    })) {
+    } | { job: IEventExecutionState<any, any>, ctx: Ctx }[]
+    )) {
       return async (...args: InputArgs) => {
-        const result = handler(...args);
+        const result = mapInputToJobs(...args);
         if ('ctx' in result) {
           await this.handleMany(result.jobs, result.ctx);
         } else {
-          await Promise.all(result.jobAndCtx.map(({ job, ctx}) => this.handleJob(job, ctx)));
+          await Promise.all(result.map(({ job, ctx}) => this.handleJob(job, ctx)));
         }
       };
     }
