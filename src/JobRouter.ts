@@ -1,6 +1,6 @@
-import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
 import { makeId } from "./utils/makeId";
 import { randomNumber } from "./tests/randomNumber";
+import { addSeconds } from "./utils/addSeconds";
 
 const HandledErrorSymbol = Symbol("HandledError");
 type HandledError = {

@@ -1,4 +1,3 @@
-import { addSeconds } from "date-fns";
 import {
   IEventExecutionState,
   IEventSchemas,
@@ -7,6 +6,7 @@ import {
 } from "../JobRouter";
 import { createJobSender, getDelaySeconds } from "../JobSender";
 import { createJobWorker } from "../JobWorker";
+import { addSeconds } from "../utils/addSeconds";
 import { jobInsights } from "./test-utils";
 import { jest } from "@jest/globals";
 

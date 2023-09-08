@@ -1,8 +1,9 @@
-import { addHours } from "date-fns";
 import { typedExpect } from "./tests/typedExpect";
 import { createJobRouter, createInitialEventExecutionState } from "./JobRouter";
 import { expectDate, getSleepUntilDate } from "./tests/test-utils";
 import { describe, test, jest, beforeEach, expect } from "@jest/globals";
+import { addHours } from "./utils/addHours";
+
 describe("createJobRouter", () => {
   describe("basic createJobRouter tests", () => {
     type EventSchema = {
