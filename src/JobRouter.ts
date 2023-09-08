@@ -217,6 +217,9 @@ type HookArg<Ctx> = {
   executionState: IEventExecutionState<any, any>;
   functionName: string;
 };
+type JobRouterHook<Ctx, ExtraParams = {}> = (
+  args: HookArg<Ctx> & ExtraParams
+) => void;
 
 export type JobRouterArgs<Ctx> = {
   getCtx?: () => Promise<Ctx>;
@@ -225,35 +228,68 @@ export type JobRouterArgs<Ctx> = {
    * @default 3
    */
   maxRetries?: number;
+  /**
+   * When a job is retried we add a random number of seconds to the delay.
+   * This is the maximum number of seconds to add to the delay.
+   */
+  maxJitterSeconds?: number;
   hooks?: {
-    beforeExecuteFunction?: (
-      args: HookArg<Ctx> & { functionState?: IFunctionExecutionState }
-    ) => void;
-    afterExecuteFunction?: (
-      args: HookArg<Ctx> & { functionState: IFunctionExecutionState }
-    ) => void;
-    beforeExecuteStep?: (
-      args: HookArg<Ctx> & {
+    beforeExecuteFunction?: JobRouterHook<
+      Ctx,
+      { functionState?: IFunctionExecutionState }
+    >;
+    afterExecuteFunction?: JobRouterHook<
+      Ctx,
+      { functionState: IFunctionExecutionState }
+    >;
+    beforeExecuteStep?: JobRouterHook<
+      Ctx,
+      {
         functionState: IFunctionExecutionState;
         stepName: string;
         stepState?: StepState;
       }
-    ) => void;
-    afterExecuteStep?: (
-      args: HookArg<Ctx> & {
+    >;
+    afterExecuteStep?: JobRouterHook<
+      Ctx,
+      {
         functionState: IFunctionExecutionState;
         stepName: string;
         stepState?: StepState;
       }
-    ) => void;
-    onError?: (
-      args: HookArg<Ctx> & {
+    >;
+    /**
+     * Called when an error occurs in a function or step.
+     * Can be used to log the error.
+     */
+    onError?: JobRouterHook<
+      Ctx,
+      {
+        error: Error | any;
+        functionState: IFunctionExecutionState;
+        stepName?: string;
+        stepState?: StepState;
+        // willRetry: boolean;
+      }
+    >;
+    /**
+     * Called when the max number of retries is exceeded.
+     * Can be used to put the job in a dead letter queue.
+     * 
+     * @param error - the error that caused the max retries to be exceeded
+     * @param functionState - the state of the function
+     * @param stepName - the name of the step
+     * @param stepState - the state of the step
+     */
+    onMaxRetriesExceeded?: JobRouterHook<
+      Ctx,
+      {
         error: Error | any;
         functionState: IFunctionExecutionState;
         stepName?: string;
         stepState?: StepState;
       }
-    ) => void;
+    >;
   };
 };
 
@@ -662,8 +698,19 @@ export function createJobRouter<
                     fnState.state.numberOfPreviousAttempts + 1,
                 },
               };
+
               if (!isHandledError(err)) {
                 args.hooks?.onError?.({
+                  ctx: handlerArg.ctx,
+                  executionState: state,
+                  functionName: fn.functionName,
+                  functionState: errorState,
+                  error: originalError,
+                });
+              }
+              const canRetry = fnState.state.numberOfPreviousAttempts < maxRetries;
+              if (!canRetry) {
+                args.hooks?.onMaxRetriesExceeded?.({
                   ctx: handlerArg.ctx,
                   executionState: state,
                   functionName: fn.functionName,

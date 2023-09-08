@@ -626,6 +626,7 @@ describe('jobRouter', () => {
     beforeExecuteStep: jest.fn<Hooks['beforeExecuteStep']>(),
     afterExecuteStep: jest.fn<Hooks['afterExecuteStep']>(),
     onError: jest.fn<Hooks['onError']>(),
+    onMaxRetriesExceeded: jest.fn<Hooks['onMaxRetriesExceeded']>(),
   }
 
   const {mocks, run} = createMockJobRouter(config, {
@@ -643,6 +644,33 @@ describe('jobRouter', () => {
     });
     expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(3);
     expect(hooks.onError).not.toHaveBeenCalled();
+    expect(hooks.onMaxRetriesExceeded).not.toHaveBeenCalled();
+  });
+
+  test('maxRetriesExceeded hook is called on max retries exceeded for step failure', async () => {
+    mocks.get('user.created', 'function 1', 'step 1').mockRejectedValue(new Error('not enough puppies'));
+    await run('user.created', {
+      userId: '123'
+    });
+
+    expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(6);
+    expect(hooks.onMaxRetriesExceeded).toHaveBeenCalledTimes(1);
+    typedExpect(hooks.onMaxRetriesExceeded.mock.calls[0][0]).toMatchObject({
+      error: new Error('not enough puppies') as any,
+    });
+  });
+
+  test('maxRetriesExceed hook is called on function failure', async () => {
+    mocks.get('user.created', 'function 1').mockRejectedValue(new Error('not enough puppies'));
+    await run('user.created', {
+      userId: '123'
+    });
+
+    expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(6);
+    expect(hooks.onMaxRetriesExceeded).toHaveBeenCalledTimes(1);
+    typedExpect(hooks.onMaxRetriesExceeded.mock.calls[0][0]).toMatchObject({
+      error: new Error('not enough puppies') as any,
+    });
   });
 
   test('onError hook is called on step failure', async () => {
@@ -655,7 +683,7 @@ describe('jobRouter', () => {
     expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(4);
 
     expect(hooks.onError).toHaveBeenCalledTimes(1);
-
+    expect(hooks.onMaxRetriesExceeded).not.toHaveBeenCalled();
     typedExpect(hooks.onError.mock.lastCall).toMatchObject([{
       error: new Error('not enough kittens') as any,
       stepState: {
