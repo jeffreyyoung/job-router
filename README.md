@@ -17,7 +17,7 @@ const router = createJobRouter<EventsSchema>().on("user.created", [
         ctx.notifications.send("welcome!", { userId })
       );
 
-      await step.sleep("wait for 15 minutes", [15, "minutes"]);
+      await step.sleep([15, "minutes"]);
 
       await step.run("handle notification receipt", () =>
         ctx.notifications.handleReceipt(receipt)
