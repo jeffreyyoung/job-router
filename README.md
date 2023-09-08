@@ -23,6 +23,7 @@ const router = createJobRouter<EventsSchema>().on("user.created", [
 ]);
 
 // scheduler.ts
+// he we use SQS as our scheduler but you could use anything
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 
 const sqs = new SQSClient({});
@@ -39,6 +40,7 @@ const scheduler = createJobScheduler<EventsSchema>((job) => {
 });
 
 // sqs-worker.js
+// a lambda function that processes the SQS queue
 import { SQSHandler } from "aws-lambda";
 const worker = createJobWorker<EventSchema>({
   scheduler,
@@ -55,3 +57,6 @@ export const handler: SQSHandler = async (event) => {
 // your-application.ts
 scheduler.send("user.created", { userId: "123" });
 ```
+
+# suggestions
+* It's common for queues like SQS to guarantee **at least** once delivery, so keep your handlers idempotent so that route handlers can be run more than once

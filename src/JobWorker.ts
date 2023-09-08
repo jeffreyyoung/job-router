@@ -21,8 +21,8 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
 }) {
   return {
     scheduler: () => args.scheduler,
-    async handleJob(job: IEventExecutionState<any, any>) {
-      const ctx = args.createCtx();
+    async handleJob(job: IEventExecutionState<any, any>, _ctx?: Ctx) {
+      const ctx = _ctx || args.createCtx();
       await args?.hooks?.beforeHandleJob?.(job);
       let res = await args.router.ingest(job, ctx);
       await args?.hooks?.afterHandleJob?.(res.status, res);
@@ -33,8 +33,8 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
 
       return res;
     },
-    async handleMany(jobs: IEventExecutionState<any, any>[]) {
-      return Promise.all(jobs.map((job) => this.handleJob(job)));
+    async handleMany(jobs: IEventExecutionState<any, any>[], _ctx?: Ctx) {
+      return Promise.all(jobs.map((job) => this.handleJob(job, _ctx)));
     },
   };
 }
