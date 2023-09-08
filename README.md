@@ -49,7 +49,7 @@ const worker = createJobWorker<EventSchema>({
 });
 
 export const handler: SQSHandler = async (event) => {
-  const jobs = event.Records.map((jsonString) => JSON.parse(jsonString));
+  const jobs = event.Records.map((record) => JSON.parse(record.body));
 
   await worker.handleMany(jobs);
 };

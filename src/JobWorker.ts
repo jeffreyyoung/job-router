@@ -36,5 +36,20 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
     async handleMany(jobs: IEventExecutionState<any, any>[], _ctx?: Ctx) {
       return Promise.all(jobs.map((job) => this.handleJob(job, _ctx)));
     },
+    createHandler<InputArgs extends any[]>(handler: (...args: InputArgs) => ({
+      jobs: IEventExecutionState<any, any>[],
+      ctx: Ctx
+    } | {
+      jobs: [IEventExecutionState<any, any>, Ctx][]
+    })) {
+      return (...args: InputArgs) => {
+        const result = handler(...args);
+        if ('ctx' in result) {
+          return this.handleMany(result.jobs, result.ctx);
+        } else {
+          return Promise.all(result.jobs.map(([job, ctx]) => this.handleJob(job, ctx)))
+        }
+      };
+    }
   };
 }
