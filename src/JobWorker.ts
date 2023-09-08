@@ -40,14 +40,14 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
       jobs: IEventExecutionState<any, any>[],
       ctx: Ctx
     } | {
-      jobs: [IEventExecutionState<any, any>, Ctx][]
+      jobAndCtx: { job: IEventExecutionState<any, any>, ctx: Ctx }[]
     })) {
       return async (...args: InputArgs) => {
         const result = handler(...args);
         if ('ctx' in result) {
           await this.handleMany(result.jobs, result.ctx);
         } else {
-          await Promise.all(result.jobs.map(([job, ctx]) => this.handleJob(job, ctx)));
+          await Promise.all(result.jobAndCtx.map(({ job, ctx}) => this.handleJob(job, ctx)));
         }
       };
     }
