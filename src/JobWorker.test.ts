@@ -43,7 +43,7 @@ test("sendJob.iterator", async () => {
       nextJobs: [
         {
           status: {
-            type: "readyAt",
+            type: "sleeping",
           },
         },
       ],
@@ -71,7 +71,7 @@ test("sendJob.flush should work", async () => {
       nextJobs: [
         {
           status: {
-            type: "readyAt",
+            type: "sleeping",
           },
         },
       ],

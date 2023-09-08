@@ -169,9 +169,9 @@ export type IEventExecutionState<
         type: "ready"; // job is waiting to be retried
       }
     | {
-        type: "readyAt"; // job is waiting until a certain time to be retried (sleeping)
-        readyAtISO: string;
-        readyAtDelaySeconds: number;
+        type: "sleeping"; // job is waiting until a certain time to be retried (sleeping)
+        sleepingUntilISO: string;
+        numberOfSecondsToSleep: number;
       }
     | {
         type: "maxRetriesExceeded";
@@ -676,9 +676,9 @@ export function createJobRouter<
           const clone = structuredClone(state);
           clone.includeFunctions = [functionName];
           clone.status = {
-            type: "readyAt",
-            readyAtDelaySeconds: functionState.state.delaySeconds,
-            readyAtISO: sleepingUntil,
+            type: "sleeping",
+            numberOfSecondsToSleep: functionState.state.delaySeconds,
+            sleepingUntilISO: sleepingUntil,
           };
           forks.push(clone);
         } else if (functionState.state.status === "success") {

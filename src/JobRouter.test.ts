@@ -405,8 +405,8 @@ describe("ingester", () => {
     expect(result1.nextJobs.length).toEqual(1);
     typedExpect(result1.nextJobs[0]).toMatchObject({
       status: {
-        type: "readyAt",
-        readyAtISO: expect.any(String) as any,
+        type: "sleeping",
+        sleepingUntilISO: expect.any(String) as any,
       },
       event: {
         data: {
@@ -474,14 +474,14 @@ describe("ingester", () => {
 
     const nextJob = result1.nextJobs[0];
     const status = nextJob.status;
-    if (status.type !== "readyAt") {
+    if (status.type !== "sleeping") {
       throw new Error("expected status to be sleeping");
     }
-    expect(status.readyAtDelaySeconds).toBe(86400);
-    expect(new Date(status.readyAtISO).getTime()).toBeGreaterThan(
+    expect(status.numberOfSecondsToSleep).toBe(86400);
+    expect(new Date(status.sleepingUntilISO).getTime()).toBeGreaterThan(
       addHours(new Date(), 23).getTime()
     );
-    expect(new Date(status.readyAtISO).getTime()).toBeLessThan(
+    expect(new Date(status.sleepingUntilISO).getTime()).toBeLessThan(
       addHours(new Date(), 25).getTime()
     );
 
@@ -573,13 +573,13 @@ describe("ingester", () => {
     typedExpect(result1.nextJobs).toMatchObject([
       {
         status: {
-          type: "readyAt",
+          type: "sleeping",
         },
         includeFunctions: ["aFn1"],
       },
       {
         status: {
-          type: "readyAt",
+          type: "sleeping",
         },
         includeFunctions: ["aFn2"],
       },

@@ -146,8 +146,8 @@ export function createMockJobRouter<
     for (const job of jobs) {
       queue.push({
         runAt:
-          job.status.type === "readyAt"
-            ? new Date(job.status.readyAtISO)
+          job.status.type === "sleeping"
+            ? new Date(job.status.sleepingUntilISO)
             : new Date(),
         job,
       });
