@@ -33,7 +33,7 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
 
       return res;
     },
-    async handleIncomingJobs(jobs: IEventExecutionState<any, any>[]) {
+    async handleMany(jobs: IEventExecutionState<any, any>[]) {
       return Promise.all(jobs.map((job) => this.handleJob(job)));
     },
   };

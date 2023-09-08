@@ -221,7 +221,7 @@ describe("job worker should work", () => {
     router,
     scheduler: createJobSender(async (jobs) => {
       // console.log("processing job", state);
-      await worker.handleIncomingJobs(jobs);
+      await worker.handleMany(jobs);
     }),
     hooks: {
       afterHandleJob: onProcessedJobMock,
@@ -239,7 +239,7 @@ describe("job worker should work", () => {
     mock.mockRejectedValue("Service unavailable");
 
     await expect(
-      worker.handleIncomingJobs([
+      worker.handleMany([
         router.utils.createJobForEvent("user.created", { userId: "123" }),
       ])
     ).resolves.toMatchObject([
@@ -271,7 +271,7 @@ describe("job worker should work", () => {
     mock.mockResolvedValue("yay");
 
     expect(
-      await worker.handleIncomingJobs([
+      await worker.handleMany([
         router.utils.createJobForEvent("user.created", { userId: "123" }),
       ])
     ).toMatchObject([
