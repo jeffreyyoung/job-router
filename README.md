@@ -33,8 +33,7 @@ const scheduler = createJobScheduler<EventsSchema>((job) => {
     new SendMessageCommand({
       MessageBody: JSON.stringify(job),
       QueueUrl: process.env.JOB_QUEUE_URL,
-      DelaySeconds:
-        job.status.type === "sleeping" ? job.status.numberOfSecondsToSleep : 0,
+      DelaySeconds: getDelaySeconds(job),
     })
   );
 });
