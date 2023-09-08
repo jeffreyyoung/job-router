@@ -404,8 +404,8 @@ describe("createJobRouter", () => {
 
     expect(result1.nextJobs.length).toEqual(1);
     typedExpect(result1.nextJobs[0]).toMatchObject({
-      status: {
-        type: "sleeping",
+      state: {
+        status: "sleeping",
         sleepingUntilISO: expect.any(String) as any,
       },
       event: {
@@ -473,8 +473,8 @@ describe("createJobRouter", () => {
     expect(fn1step3).toHaveBeenCalledTimes(0);
 
     const nextJob = result1.nextJobs[0];
-    const status = nextJob.status;
-    if (status.type !== "sleeping") {
+    const status = nextJob.state;
+    if (status.status !== "sleeping") {
       throw new Error("expected status to be sleeping");
     }
     expect(status.numberOfSecondsToSleep).toBe(86400);
@@ -572,20 +572,20 @@ describe("createJobRouter", () => {
 
     typedExpect(result1.nextJobs).toMatchObject([
       {
-        status: {
-          type: "sleeping",
+        state: {
+          status: "sleeping",
         },
         includeFunctions: ["aFn1"],
       },
       {
-        status: {
-          type: "sleeping",
+        state: {
+          status: "sleeping",
         },
         includeFunctions: ["aFn2"],
       },
       {
-        status: {
-          type: "ready",
+        state: {
+          status: "error-retryable",
         },
         excludeFunctions: ["aFn1", "aFn2"],
       },
@@ -838,7 +838,7 @@ describe("createJobRouter", () => {
 
     // todo: maybe throw error instead?
     expect(res.status).toEqual("success");
-    expect(res.result.status.type).toBe("complete");
+    expect(res.result.state.status).toBe("complete");
   });
 
   test("state.numberOfFailedPreviousAttempts increments correctly on fail", async () => {
@@ -849,8 +849,8 @@ describe("createJobRouter", () => {
 
     const result1 = await i.ingestInitial("user.created", { userId: "yay" });
     typedExpect(result1.result).toMatchObject({
-      status: {
-        type: "complete",
+      state: {
+        status: "complete",
       },
       numberOfFailedPreviousAttempts: 1,
       numberOfPreviousAttempts: 1,
@@ -858,8 +858,8 @@ describe("createJobRouter", () => {
 
     const result2 = await i.ingest(result1.nextJobs[0]);
     typedExpect(result2.result).toMatchObject({
-      status: {
-        type: "complete",
+      state: {
+        status: "complete",
       },
       numberOfFailedPreviousAttempts: 2,
       numberOfPreviousAttempts: 2,
@@ -867,8 +867,8 @@ describe("createJobRouter", () => {
 
     expect(result2.nextJobs.length).toEqual(1);
     typedExpect(result2.nextJobs[0]).toMatchObject({
-      status: {
-        type: "ready",
+      state: {
+        status: "error-retryable",
       },
       numberOfFailedPreviousAttempts: 2,
       numberOfPreviousAttempts: 2,
@@ -883,8 +883,8 @@ describe("createJobRouter", () => {
 
     const result1 = await i.ingestInitial("user.created", { userId: "yay" });
     typedExpect(result1.result).toMatchObject({
-      status: {
-        type: "complete",
+      state: {
+        status: "complete",
       },
       numberOfFailedPreviousAttempts: 0,
       numberOfPreviousAttempts: 1,
@@ -906,8 +906,8 @@ describe("createJobRouter", () => {
       }
     );
 
-    state.status = {
-      type: "complete",
+    state.state = {
+      status: "complete",
     };
 
     await expect(i.ingest(state)).rejects.toThrowErrorMatchingInlineSnapshot(`"job.status.type === complete, cannot ingest a completed job"`);
@@ -921,8 +921,8 @@ describe("createJobRouter", () => {
 
     const result1 = await i.ingestInitial("user.created", { userId: "yay" });
     typedExpect(result1.result).toMatchObject({
-      status: {
-        type: "complete",
+      state: {
+        status: "complete",
       },
       numberOfFailedPreviousAttempts: 1,
       numberOfPreviousAttempts: 1,
@@ -931,8 +931,8 @@ describe("createJobRouter", () => {
 
     const result2 = await i.ingest(result1.nextJobs[0]);
     typedExpect(result2.result).toMatchObject({
-      status: {
-        type: "complete",
+      state: {
+        status: "complete",
       },
       numberOfFailedPreviousAttempts: 2,
       numberOfPreviousAttempts: 2,

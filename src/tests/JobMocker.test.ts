@@ -95,8 +95,8 @@ describe("JobMocker", () => {
         },
         numberOfFailedPreviousAttempts: 0,
         numberOfPreviousAttempts: 1,
-        status: {
-          type: "complete",
+        state: {
+          status: "complete",
         },
       },
     ]);

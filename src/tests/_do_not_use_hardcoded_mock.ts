@@ -83,7 +83,7 @@ export function __do_not_use_createJobRouterMock() {
   const scheduler = createJobSender<RouterEvents>(async (jobs) => {
     for (const job of jobs) {
       queue.push({
-        runAt: job.status.type === "sleeping" ? new Date(job.status.sleepingUntilISO) : new Date(),
+        runAt: job.state.status === "sleeping" ? new Date(job.state.sleepingUntilISO) : new Date(),
         job,
       })
     }

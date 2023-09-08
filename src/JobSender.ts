@@ -4,6 +4,17 @@ import {
   createInitialEventExecutionState,
 } from "./JobRouter";
 
+export const getDelaySeconds = (job: IEventExecutionState<any, any>) => {
+  if (job.state.status === "error-retryable") {
+    return job.state.numberOfSecondsToSleep;
+  } else if (job.state.status === "ready") {
+    return 0;
+  } else if (job.state.status === "sleeping") {
+    return job.state.numberOfSecondsToSleep;
+  }
+  return 0;
+};
+
 export type JobSender<Events extends IEventSchemas> = {
   send: <EventName extends keyof Events>(
     eventName: EventName,

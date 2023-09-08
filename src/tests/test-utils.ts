@@ -2,10 +2,10 @@ import { expect } from "@jest/globals";
 import { IEventExecutionState } from "../JobRouter";
 
 export function getSleepUntilDate(result: IEventExecutionState<any, any>) {
-  if (result.status.type !== "sleeping") {
+  if (result.state.status !== "sleeping") {
     throw new Error("expected status to be sleeping");
   }
-  return new Date(result.status.sleepingUntilISO);
+  return new Date(result.state.sleepingUntilISO);
 }
 
 export function expectDate(date: Date) {

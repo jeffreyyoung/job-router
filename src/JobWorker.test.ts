@@ -42,8 +42,8 @@ test("sendJob.iterator", async () => {
       status: "needsRetry",
       nextJobs: [
         {
-          status: {
-            type: "sleeping",
+          state: {
+            status: "sleeping",
           },
         },
       ],
@@ -70,8 +70,8 @@ test("sendJob.flush should work", async () => {
     {
       nextJobs: [
         {
-          status: {
-            type: "sleeping",
+          state: {
+            status: "sleeping",
           },
         },
       ],
@@ -257,8 +257,8 @@ describe("job worker should work", () => {
               },
             },
           },
-          status: {
-            type: "complete",
+          state: {
+            status: "complete",
           },
         },
         status: "needsRetry",
@@ -295,8 +295,8 @@ describe("job worker should work", () => {
           },
           numberOfFailedPreviousAttempts: 0,
           numberOfPreviousAttempts: 1,
-          status: {
-            type: "complete",
+          state: {
+            status: "complete",
           },
         },
         status: "success",

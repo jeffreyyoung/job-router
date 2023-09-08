@@ -1,10 +1,11 @@
+import { addSeconds } from "date-fns";
 import {
   IEventExecutionState,
   IEventSchemas,
   JobRouterArgs,
   createJobRouter,
 } from "../JobRouter";
-import { createJobSender } from "../JobSender";
+import { createJobSender, getDelaySeconds } from "../JobSender";
 import { createJobWorker } from "../JobWorker";
 import { jobInsights } from "./test-utils";
 import { jest } from "@jest/globals";
@@ -145,10 +146,7 @@ export function createMockJobRouter<
   const scheduler = createJobSender<RouterEvents>(async (jobs) => {
     for (const job of jobs) {
       queue.push({
-        runAt:
-          job.status.type === "sleeping"
-            ? new Date(job.status.sleepingUntilISO)
-            : new Date(),
+        runAt: addSeconds(new Date(), getDelaySeconds(job)),
         job,
       });
     }

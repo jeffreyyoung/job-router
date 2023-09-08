@@ -1,16 +1,17 @@
 import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
 import { makeId } from "./utils/makeId";
+import { randomNumber } from "./tests/randomNumber";
 
-const HandledErrorSymbol = Symbol('HandledError');
+const HandledErrorSymbol = Symbol("HandledError");
 type HandledError = {
-  handledSymbol: typeof HandledErrorSymbol,
-  error: any
-}
+  handledSymbol: typeof HandledErrorSymbol;
+  error: any;
+};
 function handledError(error: any): HandledError {
   return {
     handledSymbol: HandledErrorSymbol,
-    error
-  }
+    error,
+  };
 }
 
 function isHandledError(e: any): e is HandledError {
@@ -47,7 +48,7 @@ type IStep = {
   run<T>(name: string, cb: () => Promise<T>): Promise<T>;
   sleep(
     name: string,
-    time: [number, "minutes" | "hours" | "days" | 'seconds']
+    time: [number, "minutes" | "hours" | "days" | "seconds"]
   ): Promise<true>;
 };
 
@@ -106,7 +107,7 @@ type StepState = (
   | { status: "success"; result: any }
   | { status: "error"; err: any }
   | { status: "pending" }
-  | { status: "sleeping"; untilISO: string, delaySeconds: number }
+  | { status: "sleeping"; untilISO: string; delaySeconds: number }
   | { status: "handledByAnotherExecution" }
 ) & {
   /**
@@ -160,21 +161,26 @@ export type IEventExecutionState<
    * The functions to exclude in the next job
    */
   excludeFunctions?: string[];
-  status:
+  state:
     | {
-        type: "complete"; // job is completed
-        // job may have failed or succeeded
+        status: "complete"; // job is completed
       }
     | {
-        type: "ready"; // job is waiting to be retried
+        status: "ready"; // job is waiting to be retried
+        numberOfSecondsToSleep: 0;
       }
     | {
-        type: "sleeping"; // job is waiting until a certain time to be retried (sleeping)
+        status: "sleeping"; // job is waiting until a certain time to be retried (sleeping)
         sleepingUntilISO: string;
         numberOfSecondsToSleep: number;
       }
     | {
-        type: "maxRetriesExceeded";
+        status: "error-retryable";
+        sleepingUntilISO: string;
+        numberOfSecondsToSleep: number;
+      }
+    | {
+        status: "maxRetriesExceeded";
         error?: any;
       };
   functionStates: Record<string, IFunctionExecutionState | undefined>;
@@ -193,7 +199,7 @@ export function createInitialEventExecutionState<
   jobId?: string;
 }): IEventExecutionState<Events, EventName> {
   return {
-    status: { type: "ready" },
+    state: { status: "ready", numberOfSecondsToSleep: 0 },
     executionId: makeId(),
     numberOfPreviousAttempts: 0,
     numberOfFailedPreviousAttempts: 0,
@@ -206,11 +212,11 @@ export function createInitialEventExecutionState<
   };
 }
 
-type HookArg<Ctx>= {
-  ctx: Ctx,
-  executionState: IEventExecutionState<any, any>,
-  functionName: string,
-}
+type HookArg<Ctx> = {
+  ctx: Ctx;
+  executionState: IEventExecutionState<any, any>;
+  functionName: string;
+};
 
 export type JobRouterArgs<Ctx> = {
   getCtx?: () => Promise<Ctx>;
@@ -220,12 +226,35 @@ export type JobRouterArgs<Ctx> = {
    */
   maxRetries?: number;
   hooks?: {
-    beforeExecuteFunction?: (args: HookArg<Ctx> & { functionState?: IFunctionExecutionState }) => void;
-    afterExecuteFunction?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState }) => void;
-    beforeExecuteStep?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState, stepName: string, stepState?: StepState }) => void;
-    afterExecuteStep?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState, stepName: string, stepState?: StepState }) => void;
-    onError?: (args: HookArg<Ctx> & { error: Error | any, functionState: IFunctionExecutionState, stepName?: string, stepState?: StepState}) => void;
-  }
+    beforeExecuteFunction?: (
+      args: HookArg<Ctx> & { functionState?: IFunctionExecutionState }
+    ) => void;
+    afterExecuteFunction?: (
+      args: HookArg<Ctx> & { functionState: IFunctionExecutionState }
+    ) => void;
+    beforeExecuteStep?: (
+      args: HookArg<Ctx> & {
+        functionState: IFunctionExecutionState;
+        stepName: string;
+        stepState?: StepState;
+      }
+    ) => void;
+    afterExecuteStep?: (
+      args: HookArg<Ctx> & {
+        functionState: IFunctionExecutionState;
+        stepName: string;
+        stepState?: StepState;
+      }
+    ) => void;
+    onError?: (
+      args: HookArg<Ctx> & {
+        error: Error | any;
+        functionState: IFunctionExecutionState;
+        stepName?: string;
+        stepState?: StepState;
+      }
+    ) => void;
+  };
 };
 
 const SleepSymbol = Symbol("sleep");
@@ -347,7 +376,7 @@ export function createJobRouter<
       nextJobs: IEventExecutionState<EventSchemas, EventName>[];
       status: "success" | "needsRetry" | "maxRetriesExceeded";
     }> {
-      if (_state.status.type === "complete") {
+      if (_state.state.status === "complete") {
         throw new Error(
           "job.status.type === complete, cannot ingest a completed job"
         );
@@ -410,14 +439,22 @@ export function createJobRouter<
                         functionState: fnState,
                         stepState: undefined,
                       });
-                      let delaySeconds = 
-                        unit === "days" ? amount * 24 * 60 * 60 :
-                        unit === "hours" ? amount * 60 * 60 :
-                        unit === 'minutes' ? amount * 60 :
-                        unit === 'seconds' ? amount : 1;
+                      let delaySeconds =
+                        unit === "days"
+                          ? amount * 24 * 60 * 60
+                          : unit === "hours"
+                          ? amount * 60 * 60
+                          : unit === "minutes"
+                          ? amount * 60
+                          : unit === "seconds"
+                          ? amount
+                          : 1;
 
-                      let untilISO = addSeconds(new Date(), delaySeconds).toISOString();
-                      
+                      let untilISO = addSeconds(
+                        new Date(),
+                        delaySeconds
+                      ).toISOString();
+
                       fnState.stepStates[uniqueStepName] = {
                         status: "sleeping",
                         untilISO,
@@ -436,7 +473,7 @@ export function createJobRouter<
                         functionState: fnState,
                         stepState: fnState.stepStates[uniqueStepName],
                       });
-                      
+
                       throw createSleepMessage({
                         type: SleepSymbol,
                         untilISO,
@@ -490,8 +527,6 @@ export function createJobRouter<
                       return stepState.result;
                     }
 
-
-
                     try {
                       args.hooks?.beforeExecuteStep?.({
                         // @ts-expect-error
@@ -540,7 +575,7 @@ export function createJobRouter<
                         executionState: state,
                         stepName: uniqueStepName,
                         functionName: fn.functionName,
-                        stepState: fnState.stepStates[uniqueStepName]
+                        stepState: fnState.stepStates[uniqueStepName],
                       });
 
                       args.hooks?.afterExecuteStep?.({
@@ -586,10 +621,7 @@ export function createJobRouter<
                 functionName: fn.functionName,
                 functionState: fnState,
               });
-              return [
-                fn.functionName,
-                successState,
-              ];
+              return [fn.functionName, successState];
             } catch (err) {
               if (isThrownSleep(err)) {
                 // is sleeping
@@ -610,12 +642,9 @@ export function createJobRouter<
                   ctx: handlerArg.ctx,
                   executionState: state,
                   functionName: fn.functionName,
-                  functionState: sleepState
+                  functionState: sleepState,
                 });
-                return [
-                  fn.functionName,
-                  sleepState,
-                ];
+                return [fn.functionName, sleepState];
               }
 
               let originalError = isHandledError(err) ? err.error : err;
@@ -640,19 +669,16 @@ export function createJobRouter<
                   functionName: fn.functionName,
                   functionState: errorState,
                   error: originalError,
-                })
+                });
               }
               args.hooks?.afterExecuteFunction?.({
                 ctx: handlerArg.ctx,
                 executionState: state,
                 functionName: fn.functionName,
-                functionState: errorState
+                functionState: errorState,
               });
               // actual error happened
-              return [
-                fn.functionName,
-               errorState
-              ];
+              return [fn.functionName, errorState];
             }
           })
         )
@@ -675,8 +701,8 @@ export function createJobRouter<
           const sleepingUntil = functionState.state.untilISO;
           const clone = structuredClone(state);
           clone.includeFunctions = [functionName];
-          clone.status = {
-            type: "sleeping",
+          clone.state = {
+            status: "sleeping",
             numberOfSecondsToSleep: functionState.state.delaySeconds,
             sleepingUntilISO: sleepingUntil,
           };
@@ -699,8 +725,11 @@ export function createJobRouter<
             ...forks.flatMap((f) => f.includeFunctions || []),
           ])
         );
-        clone.status = {
-          type: "ready",
+        const timeToSleep = randomNumber(5, 30);
+        clone.state = {
+          status: "error-retryable",
+          numberOfSecondsToSleep: timeToSleep,
+          sleepingUntilISO: addSeconds(new Date(), timeToSleep).toISOString(),
         };
         forks.push(clone);
       }
@@ -708,8 +737,8 @@ export function createJobRouter<
       return {
         result: {
           ...state,
-          status: {
-            type: "complete",
+          state: {
+            status: "complete",
           },
         },
         input: _state,
