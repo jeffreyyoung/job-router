@@ -1,6 +1,6 @@
 import { createJobRouter } from "./JobRouter";
 import { createJobSender } from "./JobSender";
-import { test, jest } from '@jest/globals';
+import { test, jest, expect } from '@jest/globals';
 test("job sender should work", () => {
   type Events = {
     "user.created": {
@@ -29,4 +29,31 @@ test("job sender should work", () => {
       i.ingest(state);
     }
   }
+});
+
+test('types should fail', async () => {
+  type Events = {
+    'user.created': {
+      userId: string
+    },
+    'order.created': {
+      orderId: string
+    }
+  }
+  
+  const sender = createJobSender<Events>((jobs) => Promise.resolve([]));
+
+  // @ts-expect-error
+  await sender.send('asdf', { userId: 'yay' })
+
+  await sender.send('user.created', {
+    // @ts-expect-error
+    orderId: 'asdf'
+  });
+
+  await sender.send('user.created', {
+    userId: 'meow'
+  })
+
+  expect(true).toBe(true);
 });

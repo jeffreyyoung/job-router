@@ -1,6 +1,22 @@
 import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
 import { makeId } from "./utils/makeId";
 
+const HandledErrorSymbol = Symbol('HandledError');
+type HandledError = {
+  handledSymbol: typeof HandledErrorSymbol,
+  error: any
+}
+function handledError(error: any): HandledError {
+  return {
+    handledSymbol: HandledErrorSymbol,
+    error
+  }
+}
+
+function isHandledError(e: any): e is HandledError {
+  return e?.handledSymbol === HandledErrorSymbol;
+}
+
 /**
  * Keys are event names, values are the data schema for that event
  */
@@ -208,6 +224,7 @@ export type JobRouterArgs<Ctx> = {
     afterExecuteFunction?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState }) => void;
     beforeExecuteStep?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState, stepName: string, stepState?: StepState }) => void;
     afterExecuteStep?: (args: HookArg<Ctx> & { functionState: IFunctionExecutionState, stepName: string, stepState?: StepState }) => void;
+    onError?: (args: HookArg<Ctx> & { error: Error | any, functionState: IFunctionExecutionState, stepName?: string, stepState?: StepState}) => void;
   }
 };
 
@@ -516,6 +533,16 @@ export function createJobRouter<
                           stepState.numberOfPreviousAttempts + 1,
                       };
 
+                      args.hooks?.onError?.({
+                        // @ts-expect-error
+                        ctx,
+                        error: err,
+                        executionState: state,
+                        stepName: uniqueStepName,
+                        functionName: fn.functionName,
+                        stepState: fnState.stepStates[uniqueStepName]
+                      });
+
                       args.hooks?.afterExecuteStep?.({
                         // @ts-expect-error
                         ctx,
@@ -525,7 +552,7 @@ export function createJobRouter<
                         functionState: fnState,
                         stepState: fnState.stepStates[uniqueStepName],
                       });
-                      throw err;
+                      throw handledError(err);
                     }
                   },
                 },
@@ -590,6 +617,8 @@ export function createJobRouter<
                   sleepState,
                 ];
               }
+
+              let originalError = isHandledError(err) ? err.error : err;
               someFunctionDidFail = true;
 
               const errorState: IFunctionExecutionState = {
@@ -597,13 +626,22 @@ export function createJobRouter<
                 state: {
                   executionId,
                   status: "error",
-                  err,
+                  err: originalError,
                   numberOfFailedPreviousAttempts:
                     fnState.state.numberOfFailedPreviousAttempts + 1,
                   numberOfPreviousAttempts:
                     fnState.state.numberOfPreviousAttempts + 1,
                 },
               };
+              if (!isHandledError(err)) {
+                args.hooks?.onError?.({
+                  ctx: handlerArg.ctx,
+                  executionState: state,
+                  functionName: fn.functionName,
+                  functionState: errorState,
+                  error: originalError,
+                })
+              }
               args.hooks?.afterExecuteFunction?.({
                 ctx: handlerArg.ctx,
                 executionState: state,

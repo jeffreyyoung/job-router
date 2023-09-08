@@ -415,7 +415,8 @@ expect(hooks.afterExecuteStep.mock.calls.map(([arg]) => [arg.functionName,arg.st
   "function 2 -- step 3 -- success",
 ]
 `);
-})
+});
+
 
 test("should retry once when max retries is set to 1", async () => {
   const config = {
@@ -601,3 +602,113 @@ test("maxRetries 0 should work with multiple sleeping functions", async () => {
 }
 `);
 });
+
+describe('jobRouter', () => {
+  const config = {
+    "user.created": {
+      "function 1": {
+        "step 1": "step",
+        "step 2": "step",
+        "step 3": "step",
+      },
+      "function 2": {
+        "step 1": "step",
+        "step 2": ["sleep", 1, "days"],
+        "step 3": "step",
+      }
+    },
+  } satisfies MockJobRouterConfig<Jobs>;
+
+  type Hooks = Required<Required<JobRouterArgs<any>>['hooks']>;
+  const hooks = {
+    beforeExecuteFunction: jest.fn<Hooks['beforeExecuteFunction']>(),
+    afterExecuteFunction: jest.fn<Hooks['afterExecuteFunction']>(),
+    beforeExecuteStep: jest.fn<Hooks['beforeExecuteStep']>(),
+    afterExecuteStep: jest.fn<Hooks['afterExecuteStep']>(),
+    onError: jest.fn<Hooks['onError']>(),
+  }
+
+  const {mocks, run} = createMockJobRouter(config, {
+    hooks
+  })
+
+  beforeEach(() => {
+    mocks.resetAll();
+    Object.values(hooks).forEach(mock => mock.mockReset());
+  })
+
+  test('onError hook is not called on error', async () => {
+    await run('user.created', {
+      userId: '123'
+    });
+    expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(3);
+    expect(hooks.onError).not.toHaveBeenCalled();
+  });
+
+  test('onError hook is called on step failure', async () => {
+    mocks.get('user.created', 'function 1', 'step 1').mockRejectedValueOnce(new Error('not enough kittens'));
+
+    await run('user.created', {
+      userId: '123'
+    });
+
+    expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(4);
+
+    expect(hooks.onError).toHaveBeenCalledTimes(1);
+
+    typedExpect(hooks.onError.mock.lastCall).toMatchObject([{
+      error: new Error('not enough kittens') as any,
+      stepState: {
+        status: 'error',
+        err: new Error('not enough kittens') as any,
+        numberOfFailedPreviousAttempts: 1,
+      },
+      functionName: 'function 1',
+      stepName: 'step 1'
+    }]);
+  });
+
+  test('onError hook is called once on function failure', async () => {
+    mocks.get('user.created', 'function 1').mockRejectedValueOnce(new Error('not enough puppies'));
+
+    await run('user.created', {
+      userId: '123'
+    });
+
+    expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(4);
+    expect(hooks.onError).toHaveBeenCalledTimes(1);
+    typedExpect(hooks.onError.mock.lastCall).toMatchObject([{
+      error: new Error('not enough puppies') as any,
+      functionName: 'function 1',
+      functionState: {
+        state: {
+          status: 'error',
+          err: new Error('not enough puppies') as any
+        }
+      }
+    }])
+
+    expect(hooks.onError.mock.lastCall![0].stepState).toBe(undefined);
+    expect(hooks.onError.mock.lastCall![0].stepName).toBe(undefined);
+  });
+
+  test('onError hook is called until max attempts is exceeded', async () => {
+    mocks.get('user.created', 'function 1').mockRejectedValue(new Error('not enough puppies'));
+    await run('user.created', {
+      userId: '123'
+    });
+
+    expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(6);
+    expect(hooks.onError).toHaveBeenCalledTimes(4);
+  });
+
+  test('onError hook is called until max attempts is exceeded', async () => {
+    mocks.get('user.created', 'function 1', 'step 1').mockRejectedValue(new Error('not enough puppies'));
+    await run('user.created', {
+      userId: '123'
+    });
+
+    expect(hooks.beforeExecuteFunction).toHaveBeenCalledTimes(6);
+    expect(hooks.onError).toHaveBeenCalledTimes(4);
+  })
+})

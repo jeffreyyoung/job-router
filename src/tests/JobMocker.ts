@@ -95,8 +95,8 @@ const config = {
 
 export function createMockJobRouter<
   RouterEvents extends IEventSchemas,
-  Config extends MockJobRouterConfig<any>
->(config: Config, routerArgs: JobRouterArgs<any> = {}) {
+  Config extends MockJobRouterConfig<RouterEvents>
+>(config: Config, routerArgs: JobRouterArgs<RouterEvents> = {}) {
   const mocks = createMockManager(config);
 
   const jobRouter = createJobRouter<RouterEvents>(routerArgs);
