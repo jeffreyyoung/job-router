@@ -46,10 +46,8 @@ export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
         const result = handler(...args);
         if ('ctx' in result) {
           await this.handleMany(result.jobs, result.ctx);
-          return true;
         } else {
           await Promise.all(result.jobs.map(([job, ctx]) => this.handleJob(job, ctx)));
-          return true;
         }
       };
     }
