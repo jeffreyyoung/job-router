@@ -11,32 +11,36 @@ type EventsSchema = {
 // job-router.ts
 const router = createJobRouter<EventsSchema>().on("user.created", [
   router.createHandler(
-    "send welcome email",
+    "send notification",
     async ({ ctx, step, data: { userId } }) => {
-      await step.run("log analytics", () => ctx.analytics.log("new user yay!"));
+      const receipt = await step.run("send push notification", () =>
+        ctx.notifications.send("welcome!", { userId })
+      );
 
-      await step.sleep("wait for 1 day", [1, "day"]);
+      await step.sleep("wait for 15 minutes", [15, "minutes"]);
 
-      await step.run("send marketing email", () => ctx.email.send("welcome"));
+      await step.run("handle notification receipt", () =>
+        ctx.notifications.handleReceipt(receipt)
+      );
     }
   ),
 ]);
 
 // scheduler.ts
-// he we use SQS as our scheduler but you could use anything
+// he we use SQS as our worker queue but you could use anything
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 
 const sqs = new SQSClient({});
 
-const scheduler = createJobScheduler<EventsSchema>((job) => {
-  await sqs.send(
+const scheduler = createJobScheduler<EventsSchema>((job) =>
+  sqs.send(
     new SendMessageCommand({
       MessageBody: JSON.stringify(job),
       QueueUrl: process.env.JOB_QUEUE_URL,
       DelaySeconds: getDelaySeconds(job),
     })
-  );
-});
+  )
+);
 
 // sqs-worker.js
 // a lambda function that processes the SQS queue
@@ -58,4 +62,5 @@ scheduler.send("user.created", { userId: "123" });
 ```
 
 # suggestions
-* It's common for queues like SQS to guarantee **at least** once delivery, so keep your handlers idempotent so that route handlers can be run more than once
+
+- It's common for queues like SQS to guarantee **at least** once delivery, so keep your handlers idempotent in case the same event is run more than once
