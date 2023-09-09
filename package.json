@@ -18,6 +18,7 @@
     ],
     "splitting": true,
     "sourcemap": true,
+    "minify": true,
     "clean": true,
     "dts": true,
     "format": [
