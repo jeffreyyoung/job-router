@@ -4,7 +4,7 @@ import { createJobWorker } from "./JobWorker";
 
 export {
     createJobRouter,
-    createJobScheduler as createJobSender,
+    createJobScheduler,
     createJobWorker,
     getDelaySeconds,
     IEventExecutionState
