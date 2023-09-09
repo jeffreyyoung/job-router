@@ -1,6 +1,54 @@
-import { createJobRouter } from "./JobRouter";
+import { createInitialEventExecutionState, createJobRouter } from "./JobRouter";
 import { createJobScheduler } from "./JobScheduler";
 import { test, jest, expect } from '@jest/globals';
+import { typedExpect } from "./tests/typedExpect";
+
+
+test('create initial works with sleep', ()=> {
+  type Events = {
+    "user.created": {
+      userId: string;
+    };
+  };
+  const job = createInitialEventExecutionState<Events, 'user.created'>({
+    eventName: "user.created",
+    data: {
+      userId: 'asdf'
+    },
+    delaySeconds: 15,
+    jobId: '123'
+  });
+
+  typedExpect(job).toMatchObject({
+    state: {
+      status: 'sleeping',
+      numberOfSecondsToSleep: 15,
+    }
+  })
+})
+
+test('create initial works without sleep', ()=> {
+  type Events = {
+    "user.created": {
+      userId: string;
+    };
+  };
+  const job = createInitialEventExecutionState<Events, 'user.created'>({
+    eventName: "user.created",
+    data: {
+      userId: 'asdf'
+    },
+    jobId: '123'
+  });
+
+  typedExpect(job).toMatchObject({
+    state: {
+      status: 'ready',
+      numberOfSecondsToSleep: 0,
+    }
+  })
+})
+
 test("job sender should work", () => {
   type Events = {
     "user.created": {

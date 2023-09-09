@@ -34,9 +34,10 @@ export function createJobScheduler<Events extends IEventSchemas>(
   return {
     send<EventName extends keyof Events>(
       eventName: EventName,
-      data: Events[EventName]
+      data: Events[EventName],
+      delaySeconds: number = 0
     ) {
-      return send([createInitialEventExecutionState({ eventName, data })]);
+      return send([createInitialEventExecutionState({ eventName, data, delaySeconds })]);
     },
     sendMany(jobs) {
       return send(jobs);

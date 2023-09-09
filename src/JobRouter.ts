@@ -193,13 +193,21 @@ export function createInitialEventExecutionState<
   eventName,
   data,
   jobId = makeId(),
+  delaySeconds = 0,
 }: {
   eventName: EventName;
   data: Events[EventName];
   jobId?: string;
+  delaySeconds?: number;
 }): IEventExecutionState<Events, EventName> {
   return {
-    state: { status: "ready", numberOfSecondsToSleep: 0 },
+    state: delaySeconds > 0
+      ? {
+          status: "sleeping",
+          numberOfSecondsToSleep: delaySeconds,
+          sleepingUntilISO: addSeconds(new Date(), delaySeconds).toISOString(),
+        }
+      : { status: "ready", numberOfSecondsToSleep: 0 },
     executionId: makeId(),
     numberOfPreviousAttempts: 0,
     numberOfFailedPreviousAttempts: 0,
@@ -275,7 +283,7 @@ export type JobRouterArgs<Ctx> = {
     /**
      * Called when the max number of retries is exceeded.
      * Can be used to put the job in a dead letter queue.
-     * 
+     *
      * @param error - the error that caused the max retries to be exceeded
      * @param functionState - the state of the function
      * @param stepName - the name of the step
@@ -708,7 +716,8 @@ export function createJobRouter<
                   error: originalError,
                 });
               }
-              const canRetry = fnState.state.numberOfPreviousAttempts < maxRetries;
+              const canRetry =
+                fnState.state.numberOfPreviousAttempts < maxRetries;
               if (!canRetry) {
                 args.hooks?.onMaxRetriesExceeded?.({
                   ctx: handlerArg.ctx,
