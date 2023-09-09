@@ -1,10 +1,10 @@
 import { createJobRouter } from "./JobRouter";
-import { createJobSender, getDelaySeconds } from "./JobSender";
+import { createJobScheduler, getDelaySeconds } from "./JobScheduler";
 import { createJobWorker } from "./JobWorker";
 
 export {
     createJobRouter,
-    createJobSender,
+    createJobScheduler as createJobSender,
     createJobWorker,
     getDelaySeconds
 }

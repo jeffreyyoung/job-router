@@ -1,5 +1,5 @@
 import { createJobRouter } from "./JobRouter";
-import { createJobSender } from "./JobSender";
+import { createJobScheduler } from "./JobScheduler";
 import { test, jest, expect } from '@jest/globals';
 test("job sender should work", () => {
   type Events = {
@@ -15,7 +15,7 @@ test("job sender should work", () => {
 
   let queue: any[] = [];
 
-  const sender = createJobSender<Events>((jobs) =>
+  const sender = createJobScheduler<Events>((jobs) =>
     Promise.resolve(queue.push(...jobs))
   );
 
@@ -41,7 +41,7 @@ test('types should fail', async () => {
     }
   }
   
-  const sender = createJobSender<Events>((jobs) => Promise.resolve([]));
+  const sender = createJobScheduler<Events>((jobs) => Promise.resolve([]));
 
   // @ts-expect-error
   await sender.send('asdf', { userId: 'yay' })

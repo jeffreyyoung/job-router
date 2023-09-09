@@ -1,7 +1,7 @@
 import { JobRouterArgs, createJobRouter } from "./JobRouter";
 import { __do_not_use_createJobRouterMock } from "./tests/_do_not_use_hardcoded_mock";
 import { MockJobRouterConfig, createMockJobRouter } from "./tests/JobMocker";
-import { createJobSender } from "./JobSender";
+import { createJobScheduler } from "./JobScheduler";
 import { createJobWorker } from "./JobWorker";
 import { expect, test, describe, beforeEach, jest } from "@jest/globals";
 import { typedExpect } from "./tests/typedExpect";
@@ -219,7 +219,7 @@ describe("job worker should work", () => {
   const worker = createJobWorker({
     createCtx: () => ({}),
     router,
-    scheduler: createJobSender(async (jobs) => {
+    scheduler: createJobScheduler(async (jobs) => {
       // console.log("processing job", state);
       await worker.handleMany(jobs);
     }),

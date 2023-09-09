@@ -4,7 +4,7 @@ import {
   JobRouterArgs,
   createJobRouter,
 } from "../JobRouter";
-import { createJobSender, getDelaySeconds } from "../JobSender";
+import { createJobScheduler, getDelaySeconds } from "../JobScheduler";
 import { createJobWorker } from "../JobWorker";
 import { addSeconds } from "../utils/addSeconds";
 import { jobInsights } from "./test-utils";
@@ -143,7 +143,7 @@ export function createMockJobRouter<
   const queue: { runAt: Date; job: IEventExecutionState<RouterEvents, any> }[] =
     [];
 
-  const scheduler = createJobSender<RouterEvents>(async (jobs) => {
+  const scheduler = createJobScheduler<RouterEvents>(async (jobs) => {
     for (const job of jobs) {
       queue.push({
         runAt: addSeconds(new Date(), getDelaySeconds(job)),

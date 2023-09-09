@@ -15,7 +15,7 @@ export const getDelaySeconds = (job: IEventExecutionState<any, any>) => {
   return 0;
 };
 
-export type JobSender<Events extends IEventSchemas> = {
+export type JobScheduler<Events extends IEventSchemas> = {
   send: <EventName extends keyof Events>(
     eventName: EventName,
     data: Events[EventName]
@@ -28,9 +28,9 @@ export type JobSender<Events extends IEventSchemas> = {
  * @returns
  */
 
-export function createJobSender<Events extends IEventSchemas>(
+export function createJobScheduler<Events extends IEventSchemas>(
   send: (state: IEventExecutionState<Events, any>[]) => Promise<any>
-): JobSender<Events> {
+): JobScheduler<Events> {
   return {
     send<EventName extends keyof Events>(
       eventName: EventName,

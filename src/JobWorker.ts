@@ -3,12 +3,12 @@ import {
   IEventSchemas,
   createJobRouter,
 } from "./JobRouter";
-import { createJobSender } from "./JobSender";
+import { createJobScheduler } from "./JobScheduler";
 
 export function createJobWorker<EventSchema extends IEventSchemas, Ctx>(args: {
   createCtx?: () => Ctx;
   router: ReturnType<typeof createJobRouter<EventSchema, Ctx>>;
-  scheduler: ReturnType<typeof createJobSender<EventSchema>>;
+  scheduler: ReturnType<typeof createJobScheduler<EventSchema>>;
   hooks?: {
     beforeHandleJob?: (
       job: IEventExecutionState<EventSchema, Ctx>

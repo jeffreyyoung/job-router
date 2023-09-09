@@ -1,5 +1,5 @@
 import { IEventExecutionState, createJobRouter } from "../JobRouter";
-import { createJobSender } from "../JobSender";
+import { createJobScheduler } from "../JobScheduler";
 import { createJobWorker } from "../JobWorker";
 import { jobInsights } from "./test-utils";
 import { jest } from "@jest/globals";
@@ -80,7 +80,7 @@ export function __do_not_use_createJobRouterMock() {
   const queue: { runAt: Date; job: IEventExecutionState<RouterEvents, any> }[] =
     [];
 
-  const scheduler = createJobSender<RouterEvents>(async (jobs) => {
+  const scheduler = createJobScheduler<RouterEvents>(async (jobs) => {
     for (const job of jobs) {
       queue.push({
         runAt: job.state.status === "sleeping" ? new Date(job.state.sleepingUntilISO) : new Date(),
