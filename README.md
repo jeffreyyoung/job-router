@@ -3,28 +3,24 @@
 ```typescript
 // event-schema.ts
 type EventsSchema = {
-  "send-push-notification": {
-    userId: string;
-    text: string;
-  };
   "user.created": {
     userId: string
   }
 };
 
 // job-router.ts
-const router = createJobRouter<EventsSchema>().on("send-push-notification", [
+const router = createJobRouter<EventsSchema>().on("user.created", [
   router.createHandler(
-    "send notification",
+    "send verification email",
     async ({ ctx, step, data: { userId, text } }) => {
-      const receipt = await step.run("send push notification", () =>
-        ctx.notifications.send({ userId, text })
+      const email = await step.run("send verification email", () =>
+        ctx.email.send({ userId, text })
       );
 
-      await step.sleep([15, "minutes"]);
+      await step.sleep(1, "day");
 
-      await step.run("handle notification receipt", () =>
-        ctx.notifications.handleReceipt(receipt)
+      await step.run("check if email was verified", () =>
+        ctx.email.handleVerification(email)
       );
     }
   ),
