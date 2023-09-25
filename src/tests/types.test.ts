@@ -33,3 +33,54 @@ test('types work', async () => {
   // @ts-expect-error
   i.createHandler<'asdf'>('asdf', () => Promise.resolve({}))
 });
+
+
+test('overlapping types work', async () => {
+    type Events = {
+        'user.created': {
+            userId: string
+        },
+        'user.updated': {
+            userId: string
+        },
+        'communityUser.created': {
+            communityId: string,
+            userId: string,
+        },
+        'message.created': {
+            messageId: string,
+        }
+    }
+
+    const i = createJobRouter<Events>();
+
+    i.createHandler<'user.created' | 'communityUser.created'>('asdf', async ({ ctx, ...event}) => {
+        // @ts-expect-error
+        let j = event.data.communityId;
+
+        let userId = event.data.userId;
+
+        if (event.eventName === 'communityUser.created') {
+            event.eventName
+            let j = event.data.communityId;
+        }
+    });
+
+    i.createHandler<'user.created' | 'communityUser.created'>('asdf', async ({ ctx, data, eventName}) => {
+        // @ts-expect-error
+        let j = event.data.communityId;
+
+        let userId = data.userId;
+
+        if (eventName === 'communityUser.created') {
+            eventName
+            let j = data.communityId;
+        }
+    });
+
+    i.createHandler<'user.created' | 'user.updated'>('asdf', async ({ ctx, data, eventName}) => {
+        let userId = data.userId;
+        // @ts-expect-error
+        eventName === 'abc';
+    });
+});

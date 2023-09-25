@@ -32,11 +32,11 @@ export type IEventSchemas<EventNames extends string = any> = {
  * @property eventName - the name of the event
  * @property jobId - the id of the job
  */
-type IEvent<EventSchemas, EventName extends keyof EventSchemas> = {
-  data: Intersection<EventSchemas[EventName]>;
+type IEvent<EventSchemas, EventName extends keyof EventSchemas> = EventName extends string ? {
+  data: EventSchemas[EventName];
   eventName: EventName;
   jobId: string;
-};
+} : never;
 
 /**
  * A step is a function that can be retried
@@ -215,7 +215,7 @@ export function createInitialEventExecutionState<
       data,
       eventName,
       jobId,
-    },
+    } as IEvent<Events, EventName>,
     functionStates: {},
   };
 }
@@ -467,7 +467,8 @@ export function createJobRouter<
               {
                 ...state.event,
                 // @ts-ignore
-                ctx,
+                ctx: ctx as any,
+                numberOfPreviousAttempts: fnState.state.numberOfPreviousAttempts,
                 numberOfFailedPreviousAttempts:
                   fnState.state.numberOfFailedPreviousAttempts,
                 step: {
