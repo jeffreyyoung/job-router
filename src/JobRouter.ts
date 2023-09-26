@@ -166,6 +166,10 @@ export type IEventExecutionState<
         status: "complete"; // job is completed
       }
     | {
+      status: 'complete-with-error';
+      error?: any;
+    }
+    | {
         status: "ready"; // job is waiting to be retried
         numberOfSecondsToSleep: 0;
       }
@@ -178,8 +182,9 @@ export type IEventExecutionState<
         status: "error-retryable";
         sleepingUntilISO: string;
         numberOfSecondsToSleep: number;
+        error?: any;
       }
-    | {
+    | { // job exceed max retries
         status: "maxRetriesExceeded";
         error?: any;
       };
@@ -423,6 +428,18 @@ export function createJobRouter<
       if (_state.state.status === "complete") {
         throw new Error(
           "job.status.type === complete, cannot ingest a completed job"
+        );
+      }
+
+      if (_state.state.status === "complete-with-error") {
+        throw new Error(
+          "job.status.type === complete-with-error, cannot ingest a completed job"
+        );
+      }
+
+      if (_state.state.status === "maxRetriesExceeded") {
+        throw new Error(
+          "job.status.type === maxRetriesExceeded, cannot ingest a job that exceeded max retries"
         );
       }
 
@@ -787,34 +804,60 @@ export function createJobRouter<
           status: "error-retryable",
           numberOfSecondsToSleep: timeToSleep,
           sleepingUntilISO: addSeconds(new Date(), timeToSleep).toISOString(),
+          error: getFunctionStateError(state),
         };
         forks.push(clone);
       }
 
+      let status: "success" | "needsRetry" | "maxRetriesExceeded" = 'success';
+
+      if (
+        forks.length > 0 &&
+        state.numberOfFailedPreviousAttempts > maxRetries
+      ) {
+        status = "maxRetriesExceeded";
+        
+        state.state = {
+          status: "maxRetriesExceeded",
+          error: getFunctionStateError(state),
+        }
+      } else if (forks.length > 0) {
+        status = "needsRetry";
+        state.state = {
+          error: getFunctionStateError(state),
+          status: 'complete-with-error',
+        }
+      } else {
+        status = 'success';
+        state.state = {
+          ...state.state,
+          status: 'complete',
+        }
+      }
+
+
+
       return {
         result: {
           ...state,
-          state: {
-            status: "complete",
-          },
         },
         input: _state,
         nextJobs: forks,
-        status: (() => {
-          if (
-            forks.length > 0 &&
-            state.numberOfFailedPreviousAttempts > maxRetries
-          ) {
-            return "maxRetriesExceeded";
-          }
-          if (forks.length > 0) {
-            return "needsRetry";
-          }
-          return "success";
-        })(),
+        status: status,
       };
     },
   };
+}
+
+function getFunctionStateError(state: IEventExecutionState<any, any>) {
+  for (const [functionName, functionState] of Object.entries(
+    state.functionStates
+  )) {
+    if (functionState?.state.status === "error") {
+      return functionState.state.err;
+    }
+  }
+  return undefined;
 }
 
 function createInitialFunctionState(

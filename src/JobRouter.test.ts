@@ -4,6 +4,10 @@ import { expectDate, getSleepUntilDate } from "./tests/test-utils";
 import { describe, test, jest, beforeEach, expect } from "@jest/globals";
 import { addHours } from "./utils/addHours";
 
+describe('job complete should mean something', () => {
+
+})
+
 describe("createJobRouter", () => {
   describe("basic createJobRouter tests", () => {
     type EventSchema = {
@@ -851,7 +855,7 @@ describe("createJobRouter", () => {
     const result1 = await i.ingestInitial("user.created", { userId: "yay" });
     typedExpect(result1.result).toMatchObject({
       state: {
-        status: "complete",
+        status: "complete-with-error",
       },
       numberOfFailedPreviousAttempts: 1,
       numberOfPreviousAttempts: 1,
@@ -860,7 +864,7 @@ describe("createJobRouter", () => {
     const result2 = await i.ingest(result1.nextJobs[0]);
     typedExpect(result2.result).toMatchObject({
       state: {
-        status: "complete",
+        status: "complete-with-error",
       },
       numberOfFailedPreviousAttempts: 2,
       numberOfPreviousAttempts: 2,
@@ -923,7 +927,7 @@ describe("createJobRouter", () => {
     const result1 = await i.ingestInitial("user.created", { userId: "yay" });
     typedExpect(result1.result).toMatchObject({
       state: {
-        status: "complete",
+        status: "complete-with-error",
       },
       numberOfFailedPreviousAttempts: 1,
       numberOfPreviousAttempts: 1,
@@ -933,7 +937,7 @@ describe("createJobRouter", () => {
     const result2 = await i.ingest(result1.nextJobs[0]);
     typedExpect(result2.result).toMatchObject({
       state: {
-        status: "complete",
+        status: "maxRetriesExceeded",
       },
       numberOfFailedPreviousAttempts: 2,
       numberOfPreviousAttempts: 2,

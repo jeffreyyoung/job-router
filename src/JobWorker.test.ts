@@ -258,7 +258,7 @@ describe("job worker should work", () => {
             },
           },
           state: {
-            status: "complete",
+            status: "complete-with-error",
           },
         },
         status: "needsRetry",
@@ -460,6 +460,37 @@ test("should retry once when max retries is set to 1", async () => {
 `);
 });
 
+test("result status should be correct on max retries exceeded", async () => {
+  const config = {
+    "user.created": {
+      "function 1": {
+        "step 1": "step",
+        "step 2": "step",
+        "step 3": "step",
+      },
+    },
+  } satisfies MockJobRouterConfig<Jobs>;
+
+  const { mocks, run } = createMockJobRouter(config, {
+    maxRetries: 1,
+  });
+
+  mocks
+    .get("user.created", "function 1", "step 2")
+    .mockRejectedValue("something went wrong");
+
+  const { finalOutcome, summary, results } = await run("user.created", {
+    userId: "123",
+  });
+
+  expect(results.length).toBe(2);
+  expect(finalOutcome).toBe("maxRetriesExceeded");
+  expect(results[1].status).toBe("maxRetriesExceeded");
+  // @ts-expect-error
+  expect(results[1].result.state.error).toBe('something went wrong');
+  typedExpect(results[1].result.state.status).toBe('maxRetriesExceeded')
+});
+
 test("maxRetries 0 should work with sleep", async () => {
   const config = {
     "user.created": {
@@ -638,7 +669,15 @@ describe('jobRouter', () => {
     Object.values(hooks).forEach(mock => mock.mockReset());
   })
 
-  test('onError hook is not called on error', async () => {
+  test('result state is correct on max retries exceeded', async () => {
+    mocks.get('user.created', 'function 1', 'step 1').mockRejectedValue(new Error('not enough puppies'));
+    let { results } = await run('user.created', {
+      userId: '123'
+    });
+    expect(results.length).toBe(5);
+  })
+
+  test('onError hook is not called on no error', async () => {
     await run('user.created', {
       userId: '123'
     });
