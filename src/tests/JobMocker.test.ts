@@ -106,6 +106,36 @@ describe("JobMocker", () => {
     expect(mocks.get("userUpdated", "function1")).toBeCalledTimes(1);
   });
 
+  test('traceId is preserved across attempts', async () => {
+    const { results } = await run("userCreated", { userId: "123" }, { traceId: '456' });
+    expect(results.length).toBe(2);
+    expect(results[0].result.event.traceId).toBe('456');
+    expect(results[1].result.event.traceId).toBe('456');
+    const { results: results1 } = await run("userUpdated", { userId: "123" }, { traceId: '399' });
+    expect(results1.length).toBe(1);
+    expect(results1[0].result.event.traceId).toBe('399');
+  });
+
+  test('traceId is preserved across failures', async () => {
+    mocks.get("userCreated", "function1").mockRejectedValueOnce('error');
+    const { results } = await run("userCreated", { userId: "123" }, { traceId: '456' });
+    expect(results.length).toBe(3);
+    expect(results[0].result.event.traceId).toBe('456');
+    expect(results[1].result.event.traceId).toBe('456');
+    expect(results[2].result.event.traceId).toBe('456');
+  })
+
+  test('traceId is preserved maxRetriesExceeded failures', async () => {
+    mocks.get("userCreated", "function1").mockRejectedValue('error');
+    const { results } = await run("userCreated", { userId: "123" }, { traceId: '456' });
+    expect(results.length).toBe(5);
+    expect(results[0].result.event.traceId).toBe('456');
+    expect(results[1].result.event.traceId).toBe('456');
+    expect(results[2].result.event.traceId).toBe('456');
+    expect(results[3].result.event.traceId).toBe('456');
+    expect(results[4].result.event.traceId).toBe('456');
+  })
+
   test("userCreated should pass in 2 steps because it has sleep", async () => {
     const { results } = await run("userCreated", { userId: "123" });
     expect(results.length).toBe(2);

@@ -31,11 +31,13 @@ export type IEventSchemas<EventNames extends string = any> = {
  * @property data - the data for the event
  * @property eventName - the name of the event
  * @property jobId - the id of the job
+ * @property traceId - can be used to trace an event across processes
  */
 type IEvent<EventSchemas, EventName extends keyof EventSchemas> = EventName extends string ? {
   data: EventSchemas[EventName];
   eventName: EventName;
   jobId: string;
+  traceId: string;
 } : never;
 
 /**
@@ -197,11 +199,13 @@ export function createInitialEventExecutionState<
 >({
   eventName,
   data,
+  traceId = makeId(),
   jobId = makeId(),
   delaySeconds = 0,
 }: {
   eventName: EventName;
   data: Events[EventName];
+  traceId?: string;
   jobId?: string;
   delaySeconds?: number;
 }): IEventExecutionState<Events, EventName> {
@@ -220,6 +224,7 @@ export function createInitialEventExecutionState<
       data,
       eventName,
       jobId,
+      traceId,
     } as IEvent<Events, EventName>,
     functionStates: {},
   };
@@ -348,11 +353,13 @@ export function createJobRouter<
     utils: {
       createJobForEvent<EventName extends keyof EventSchemas>(
         eventName: EventName,
-        data: EventSchemas[EventName]
+        data: EventSchemas[EventName],
+        { traceId = makeId() } = {}
       ) {
         return createInitialEventExecutionState({
           eventName,
           data,
+          traceId,
         });
       },
     },
@@ -398,11 +405,12 @@ export function createJobRouter<
     ingestInitial<EventName extends keyof EventSchemas>(
       eventName: EventName,
       data: EventSchemas[EventName],
-      jobId = makeId()
+      { jobId = makeId(), traceId = makeId() } = {}
     ) {
       return this.ingest(
         createInitialEventExecutionState({
           eventName,
+          traceId,
           data,
           jobId,
         })

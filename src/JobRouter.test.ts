@@ -4,9 +4,7 @@ import { expectDate, getSleepUntilDate } from "./tests/test-utils";
 import { describe, test, jest, beforeEach, expect } from "@jest/globals";
 import { addHours } from "./utils/addHours";
 
-describe('job complete should mean something', () => {
-
-})
+describe("job complete should mean something", () => {});
 
 describe("createJobRouter", () => {
   describe("basic createJobRouter tests", () => {
@@ -29,7 +27,11 @@ describe("createJobRouter", () => {
 
     test("createJobRouter should succeed", async () => {
       typedExpect(
-        await i.ingestInitial("user.created", { userId: "123" }, "123")
+        await i.ingestInitial(
+          "user.created",
+          { userId: "123" },
+          { jobId: "123", traceId: "456" }
+        )
       ).toMatchObject({
         status: "success",
         result: {
@@ -39,6 +41,7 @@ describe("createJobRouter", () => {
             },
             eventName: "user.created",
             jobId: "123",
+            traceId: "456",
           },
           functionStates: {
             "log yay!": {
@@ -61,7 +64,11 @@ describe("createJobRouter", () => {
 
     test("job should fail", async () => {
       typedExpect(
-        await i.ingestInitial("user.updated", { userId: "123" }, "jobId123")
+        await i.ingestInitial(
+          "user.updated",
+          { userId: "123" },
+          { jobId: "jobId123" }
+        )
       ).toMatchObject({
         status: "needsRetry",
         nextJobs: [{}],
@@ -242,7 +249,7 @@ describe("createJobRouter", () => {
     const result1 = await i.ingestInitial(
       "a",
       { a: "someRandomData" },
-      "jobId123"
+      { jobId: "jobId123" }
     );
     // a2 and a3 funcs should fail
     expect(result1.status).toEqual("needsRetry");
@@ -309,11 +316,17 @@ describe("createJobRouter", () => {
 
     i.on("user.created", [
       fn1,
-      i.createHandler("log yay 1!", jest.fn<any>().mockResolvedValue(undefined)),
-      i.createHandler("log yay 2!", jest.fn<any>().mockResolvedValue(undefined)),
+      i.createHandler(
+        "log yay 1!",
+        jest.fn<any>().mockResolvedValue(undefined)
+      ),
+      i.createHandler(
+        "log yay 2!",
+        jest.fn<any>().mockResolvedValue(undefined)
+      ),
     ]);
 
-    await i.ingestInitial("user.created", { userId: "123" }, "123");
+    await i.ingestInitial("user.created", { userId: "123" }, { jobId: "123" });
     expect(onCreated.mock.calls[0]).toMatchObject([
       {
         ctx: 1234,
@@ -330,7 +343,7 @@ describe("createJobRouter", () => {
     ]);
     expect(getCtx).toHaveBeenCalledTimes(1);
 
-    await i.ingestInitial("user.created", { userId: "123" }, "123");
+    await i.ingestInitial("user.created", { userId: "123" }, { jobId: "123" });
     expect(getCtx).toHaveBeenCalledTimes(2);
   });
 
@@ -849,7 +862,10 @@ describe("createJobRouter", () => {
   test("state.numberOfFailedPreviousAttempts increments correctly on fail", async () => {
     const i = createJobRouter<EventSchema>();
     i.on("user.created", [
-      i.createHandler("yo", jest.fn<any>().mockRejectedValue(new Error("nope"))),
+      i.createHandler(
+        "yo",
+        jest.fn<any>().mockRejectedValue(new Error("nope"))
+      ),
     ]);
 
     const result1 = await i.ingestInitial("user.created", { userId: "yay" });
@@ -915,13 +931,18 @@ describe("createJobRouter", () => {
       status: "complete",
     };
 
-    await expect(i.ingest(state)).rejects.toThrowErrorMatchingInlineSnapshot(`"job.status.type === complete, cannot ingest a completed job"`);
+    await expect(i.ingest(state)).rejects.toThrowErrorMatchingInlineSnapshot(
+      `"job.status.type === complete, cannot ingest a completed job"`
+    );
   });
 
   test("maxRetriesExceeded should happened", async () => {
     const i = createJobRouter<EventSchema>({ maxRetries: 1 });
     i.on("user.created", [
-      i.createHandler("yo", jest.fn<any>().mockRejectedValue(new Error("nope"))),
+      i.createHandler(
+        "yo",
+        jest.fn<any>().mockRejectedValue(new Error("nope"))
+      ),
     ]);
 
     const result1 = await i.ingestInitial("user.created", { userId: "yay" });

@@ -1,4 +1,4 @@
-import { createInitialEventExecutionState, createJobRouter } from "./JobRouter";
+import { IEventExecutionState, createInitialEventExecutionState, createJobRouter } from "./JobRouter";
 import { createJobScheduler } from "./JobScheduler";
 import { test, jest, expect } from '@jest/globals';
 import { typedExpect } from "./tests/typedExpect";
@@ -15,11 +15,15 @@ test('create initial works with sleep', ()=> {
     data: {
       userId: 'asdf'
     },
+    traceId: '456',
     delaySeconds: 15,
     jobId: '123'
   });
 
   typedExpect(job).toMatchObject({
+    event: {
+      traceId: '456',
+    },
     state: {
       status: 'sleeping',
       numberOfSecondsToSleep: 15,
@@ -104,4 +108,26 @@ test('types should fail', async () => {
   })
 
   expect(true).toBe(true);
+});
+
+
+test('should send jobs with traceId', async () => {
+  type Events = {
+    'user.created': {
+      userId: string;
+    }
+  }
+
+    let spy = jest.fn<Parameters<typeof createJobScheduler>[0]>()
+    spy.mockResolvedValue(undefined);
+    const sender = createJobScheduler<Events>(spy);
+
+    await sender.send('user.created', { userId: '123' }, { traceId: '456' });
+    await sender.send('user.created', { userId: '999'}, { traceId: '456' });
+
+    expect(spy.mock.calls[0][0][0].event.traceId).toBe('456');
+    expect(spy.mock.calls[0][0][0].event.data).toMatchObject({ userId: '123' });
+    
+    expect(spy.mock.calls[1][0][0].event.traceId).toBe('456');
+    expect(spy.mock.calls[1][0][0].event.data).toMatchObject({ userId: '999' });
 });

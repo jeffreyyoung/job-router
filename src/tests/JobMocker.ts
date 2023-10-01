@@ -175,15 +175,14 @@ export function createMockJobRouter<
         };
       }
     },
-    async runIterator<T extends keyof RouterEvents>(
-      type: T,
-      args: RouterEvents[T]
+    async runIterator(
+      ...sendArgs: Parameters<typeof scheduler.send>
     ) {
-      await scheduler.send(type, args);
+      await scheduler.send(...sendArgs);
       return self.processQueue();
     },
-    async run<T extends keyof RouterEvents>(type: T, args: RouterEvents[T]) {
-      await scheduler.send(type, args);
+    async run(...sendArgs: Parameters<typeof scheduler.send>) {
+      await scheduler.send(...sendArgs);
       let results = [];
       for await (const result of self.processQueue()) {
         results.push(result);
